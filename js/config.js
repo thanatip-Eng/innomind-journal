@@ -1,15 +1,14 @@
 // =====================================================
 // Firebase Configuration
 // =====================================================
-// *** สำคัญ: แทนที่ค่าเหล่านี้ด้วย config จาก Firebase Console ***
 
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyDiHa0MupDOhYaNuj0jgO2nguShPAwacd4",
+    authDomain: "innomind-journal-e6f0e.firebaseapp.com",
+    projectId: "innomind-journal-e6f0e",
+    storageBucket: "innomind-journal-e6f0e.firebasestorage.app",
+    messagingSenderId: "619781160712",
+    appId: "1:619781160712:web:9e53c798b3106e36f376bd"
 };
 
 // =====================================================
@@ -135,11 +134,11 @@ function showToast(message, type = 'info') {
 
 // Show/hide loading
 function showLoading() {
-    document.getElementById('loading-overlay').classList.remove('hidden');
+    document.getElementById('loading-overlay').classList.add('active');
 }
 
 function hideLoading() {
-    document.getElementById('loading-overlay').classList.add('hidden');
+    document.getElementById('loading-overlay').classList.remove('active');
 }
 
 // =====================================================

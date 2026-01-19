@@ -54,7 +54,7 @@ function setupEventListeners() {
     document.getElementById('student-detail-logout')?.addEventListener('click', handleLogout);
     
     // Navigation tabs
-    document.querySelectorAll('.nav-item').forEach(item => {
+    document.querySelectorAll('.tab-btn').forEach(item => {
         item.addEventListener('click', (e) => {
             const tab = e.currentTarget.dataset.tab;
             if (tab) switchTab(e.currentTarget, tab);
@@ -269,7 +269,7 @@ function navigateToRoleDashboard() {
 
 function switchTab(button, tabId) {
     // Update nav buttons
-    button.parentElement.querySelectorAll('.nav-item').forEach(item => {
+    button.parentElement.querySelectorAll('.tab-btn').forEach(item => {
         item.classList.remove('active');
     });
     button.classList.add('active');
@@ -277,9 +277,14 @@ function switchTab(button, tabId) {
     // Update tab content
     const page = button.closest('.page');
     page.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
         content.classList.add('hidden');
     });
-    document.getElementById(tabId)?.classList.remove('hidden');
+    const targetTab = document.getElementById(tabId);
+    if (targetTab) {
+        targetTab.classList.remove('hidden');
+        targetTab.classList.add('active');
+    }
     
     // Load tab-specific data
     if (tabId === 'student-journal') {
@@ -648,7 +653,7 @@ function showAddUserModal() {
     
     document.getElementById('modal-container').innerHTML = '';
     document.getElementById('modal-container').appendChild(modal);
-    document.getElementById('modal-overlay').classList.remove('hidden');
+    document.getElementById('modal-overlay').classList.add('active');
     
     // Load groups for dropdown
     loadGroupsDropdown('user-group');
@@ -738,7 +743,7 @@ function showAddGroupModal() {
     
     document.getElementById('modal-container').innerHTML = '';
     document.getElementById('modal-container').appendChild(modal);
-    document.getElementById('modal-overlay').classList.remove('hidden');
+    document.getElementById('modal-overlay').classList.add('active');
     
     // Load teachers for dropdown
     loadTeachersDropdown('group-teacher');
@@ -798,7 +803,7 @@ function showAddEventModal() {
     
     document.getElementById('modal-container').innerHTML = '';
     document.getElementById('modal-container').appendChild(modal);
-    document.getElementById('modal-overlay').classList.remove('hidden');
+    document.getElementById('modal-overlay').classList.add('active');
     
     // Handle form submit
     document.getElementById('add-event-form').addEventListener('submit', handleAddEvent);
@@ -888,7 +893,7 @@ async function deleteUser(type, userId) {
 }
 
 function closeModal() {
-    document.getElementById('modal-overlay').classList.add('hidden');
+    document.getElementById('modal-overlay').classList.remove('active');
     document.getElementById('modal-container').innerHTML = '';
 }
 
@@ -1160,7 +1165,7 @@ function showTeacherNoteModal(studentId, date) {
     
     document.getElementById('modal-container').innerHTML = '';
     document.getElementById('modal-container').appendChild(modal);
-    document.getElementById('modal-overlay').classList.remove('hidden');
+    document.getElementById('modal-overlay').classList.add('active');
     
     document.getElementById('note-student-id').value = studentId;
     document.getElementById('note-date').value = date;
