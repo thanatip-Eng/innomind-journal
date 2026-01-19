@@ -95,15 +95,51 @@ function setupEventListeners() {
 }
 
 function setupStarRatings() {
-    document.querySelectorAll('.star-rating').forEach(rating => {
-        rating.querySelectorAll('i').forEach(star => {
-            star.addEventListener('click', () => {
-                const value = parseInt(star.dataset.value);
-                rating.querySelectorAll('i').forEach((s, i) => {
-                    s.classList.toggle('active', i < value);
-                });
-                rating.dataset.rating = value;
-            });
+    // Use event delegation for star ratings
+    document.addEventListener('click', (e) => {
+        const star = e.target.closest('.star-rating i');
+        if (!star) return;
+        
+        const rating = star.closest('.star-rating');
+        const value = parseInt(star.dataset.value);
+        
+        // Update visual state
+        rating.querySelectorAll('i').forEach((s, i) => {
+            if (i < value) {
+                s.classList.add('active');
+            } else {
+                s.classList.remove('active');
+            }
+        });
+        
+        // Store rating value
+        rating.dataset.rating = value;
+    });
+    
+    // Hover effect
+    document.addEventListener('mouseover', (e) => {
+        const star = e.target.closest('.star-rating i');
+        if (!star) return;
+        
+        const rating = star.closest('.star-rating');
+        const value = parseInt(star.dataset.value);
+        
+        rating.querySelectorAll('i').forEach((s, i) => {
+            if (i < value) {
+                s.classList.add('hover');
+            } else {
+                s.classList.remove('hover');
+            }
+        });
+    });
+    
+    document.addEventListener('mouseout', (e) => {
+        const star = e.target.closest('.star-rating i');
+        if (!star) return;
+        
+        const rating = star.closest('.star-rating');
+        rating.querySelectorAll('i').forEach(s => {
+            s.classList.remove('hover');
         });
     });
 }
@@ -491,6 +527,7 @@ async function editUser(type, userId) {
             db.collection('events').get()
         ]);
         
+        // For students - dropdown options
         const groupOpts = groupsSnap.docs.map(g => 
             `<option value="${g.id}" ${data.groupId === g.id ? 'selected' : ''}>${g.data().name}</option>`
         ).join('');
@@ -498,6 +535,16 @@ async function editUser(type, userId) {
         const eventOpts = eventsSnap.docs.map(e => 
             `<option value="${e.id}" ${data.eventId === e.id ? 'selected' : ''}>${e.data().name}</option>`
         ).join('');
+        
+        // For teachers - checkboxes for groups they manage
+        const teacherGroupCheckboxes = groupsSnap.docs.map(g => {
+            const gData = g.data();
+            const isManaged = gData.teacherId === userId;
+            return `<label class="flex items-center gap-2" style="cursor:pointer;padding:0.5rem;background:var(--bg-secondary);border-radius:var(--radius-md);margin-bottom:0.25rem;">
+                <input type="checkbox" class="teacher-group-checkbox" value="${g.id}" ${isManaged ? 'checked' : ''} style="width:18px;height:18px;">
+                <span>${gData.name}</span>
+            </label>`;
+        }).join('');
         
         document.getElementById('modal-container').innerHTML = `
             <div class="modal-header">
@@ -531,7 +578,14 @@ async function editUser(type, userId) {
                             ${eventOpts}
                         </select>
                     </div>
-                    ` : ''}
+                    ` : `
+                    <div class="form-group">
+                        <label>กลุ่มที่ดูแล</label>
+                        <div id="teacher-groups-list" style="max-height:200px;overflow-y:auto;">
+                            ${teacherGroupCheckboxes || '<p style="color:var(--text-muted);font-size:0.875rem;">ยังไม่มีกลุ่มในระบบ</p>'}
+                        </div>
+                    </div>
+                    `}
                 </form>
             </div>
             <div class="modal-footer">
@@ -550,6 +604,8 @@ async function saveEditUser() {
     
     if (!name) { showToast('กรุณากรอกชื่อ', 'error'); return; }
     
+    showLoading();
+    
     try {
         const collection = type === 'teacher' ? 'teachers' : 'students';
         const updateData = { name };
@@ -559,11 +615,49 @@ async function saveEditUser() {
             updateData.eventId = document.getElementById('edit-user-event')?.value || null;
         }
         
+        // Update user document
         await db.collection(collection).doc(userId).update(updateData);
+        
+        // For teachers, update group assignments
+        if (type === 'teacher') {
+            const checkboxes = document.querySelectorAll('.teacher-group-checkbox');
+            const selectedGroupIds = Array.from(checkboxes)
+                .filter(cb => cb.checked)
+                .map(cb => cb.value);
+            
+            // Get all groups
+            const groupsSnap = await db.collection('groups').get();
+            
+            // Update each group's teacherId
+            const batch = db.batch();
+            groupsSnap.docs.forEach(doc => {
+                const groupRef = db.collection('groups').doc(doc.id);
+                if (selectedGroupIds.includes(doc.id)) {
+                    // Assign this teacher to this group
+                    batch.update(groupRef, { teacherId: userId });
+                } else if (doc.data().teacherId === userId) {
+                    // Remove this teacher from this group (only if it was assigned to this teacher)
+                    batch.update(groupRef, { teacherId: null });
+                }
+            });
+            await batch.commit();
+        }
+        
         showToast('บันทึกสำเร็จ', 'success');
         closeModal();
-        type === 'teacher' ? loadTeachersTable() : loadStudentsTable();
-    } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาด', 'error'); }
+        
+        if (type === 'teacher') {
+            loadTeachersTable();
+            loadGroups();
+        } else {
+            loadStudentsTable();
+        }
+    } catch (e) { 
+        console.error(e); 
+        showToast('เกิดข้อผิดพลาด', 'error'); 
+    }
+    
+    hideLoading();
 }
 
 async function deleteUser(type, userId) {
