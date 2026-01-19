@@ -6,63 +6,46 @@
     <title>EL Daily Journal - Experiential Learning</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <!-- Loading Overlay -->
     <div id="loading-overlay" class="loading-overlay">
-        <div class="loader">
-            <div class="loader-circle"></div>
-            <p>กำลังโหลด...</p>
-        </div>
+        <div class="spinner"></div>
+        <p class="loading-text">กำลังโหลด...</p>
     </div>
 
     <!-- Login Page -->
     <div id="login-page" class="page">
         <div class="login-container">
             <div class="login-left">
-                <div class="login-brand">
-                    <div class="brand-icon">
-                        <i class="fas fa-book-open"></i>
-                    </div>
+                <div class="shape shape-1"></div>
+                <div class="shape shape-2"></div>
+                <div class="shape shape-3"></div>
+                <div class="login-branding">
+                    <div class="login-logo">📚</div>
                     <h1>EL Daily Journal</h1>
-                    <p>Experiential Learning Reflection System</p>
-                </div>
-                <div class="login-illustration">
-                    <div class="illustration-circle c1"></div>
-                    <div class="illustration-circle c2"></div>
-                    <div class="illustration-circle c3"></div>
-                    <div class="floating-icons">
-                        <i class="fas fa-lightbulb"></i>
-                        <i class="fas fa-users"></i>
-                        <i class="fas fa-heart"></i>
-                        <i class="fas fa-star"></i>
-                    </div>
+                    <p>ระบบบันทึกการเรียนรู้จากประสบการณ์</p>
                 </div>
             </div>
             <div class="login-right">
                 <div class="login-form-container">
-                    <h2>เข้าสู่ระบบ</h2>
-                    <p class="login-subtitle">บันทึกการเรียนรู้จากประสบการณ์ของคุณ</p>
-                    <form id="login-form">
+                    <div class="login-form-header">
+                        <h2>เข้าสู่ระบบ</h2>
+                        <p>บันทึกการเรียนรู้จากประสบการณ์ของคุณ</p>
+                    </div>
+                    <form id="login-form" class="login-form">
                         <div class="form-group">
-                            <label for="login-email">
-                                <i class="fas fa-envelope"></i>
-                                อีเมล
-                            </label>
+                            <label for="login-email">อีเมล</label>
                             <input type="email" id="login-email" required placeholder="your@email.com">
                         </div>
                         <div class="form-group">
-                            <label for="login-password">
-                                <i class="fas fa-lock"></i>
-                                รหัสผ่าน
-                            </label>
+                            <label for="login-password">รหัสผ่าน</label>
                             <input type="password" id="login-password" required placeholder="••••••••">
                         </div>
-                        <button type="submit" class="btn btn-primary btn-full">
-                            <i class="fas fa-sign-in-alt"></i>
+                        <button type="submit" class="btn-login">
                             เข้าสู่ระบบ
                         </button>
                     </form>
@@ -76,95 +59,110 @@
     <div id="admin-page" class="page hidden">
         <nav class="navbar">
             <div class="nav-brand">
-                <i class="fas fa-book-open"></i>
-                <span>EL Journal</span>
-                <span class="badge badge-admin">Super Admin</span>
-            </div>
-            <div class="nav-menu">
-                <button class="nav-item active" data-tab="admin-users">
-                    <i class="fas fa-users"></i>
-                    จัดการผู้ใช้
-                </button>
-                <button class="nav-item" data-tab="admin-groups">
-                    <i class="fas fa-layer-group"></i>
-                    จัดการกลุ่ม
-                </button>
-                <button class="nav-item" data-tab="admin-events">
-                    <i class="fas fa-calendar-alt"></i>
-                    จัดการอีเวนท์
-                </button>
-                <button class="nav-item" data-tab="admin-stats">
-                    <i class="fas fa-chart-bar"></i>
-                    สถิติ
-                </button>
+                <div class="nav-logo">📚</div>
+                <span class="nav-title">EL Journal</span>
             </div>
             <div class="nav-user">
-                <span id="admin-name">Admin</span>
-                <button id="admin-logout" class="btn btn-outline btn-sm">
+                <div class="user-info">
+                    <div class="user-avatar" id="admin-avatar">A</div>
+                    <span class="user-name" id="admin-name">Admin</span>
+                    <span class="role-badge admin">Super Admin</span>
+                </div>
+                <button id="admin-logout" class="btn-logout">
                     <i class="fas fa-sign-out-alt"></i>
-                    ออกจากระบบ
+                    <span>ออกจากระบบ</span>
                 </button>
             </div>
         </nav>
 
         <main class="main-content">
+            <!-- Tab Navigation -->
+            <div class="tab-nav">
+                <button class="tab-btn active" data-tab="admin-users">
+                    <span class="icon"><i class="fas fa-users"></i></span>
+                    จัดการผู้ใช้
+                </button>
+                <button class="tab-btn" data-tab="admin-groups">
+                    <span class="icon"><i class="fas fa-layer-group"></i></span>
+                    จัดการกลุ่ม
+                </button>
+                <button class="tab-btn" data-tab="admin-events">
+                    <span class="icon"><i class="fas fa-calendar-alt"></i></span>
+                    จัดการอีเวนท์
+                </button>
+                <button class="tab-btn" data-tab="admin-stats">
+                    <span class="icon"><i class="fas fa-chart-bar"></i></span>
+                    สถิติ
+                </button>
+            </div>
+
             <!-- Users Management -->
             <div id="admin-users" class="tab-content active">
-                <div class="content-header">
-                    <h2><i class="fas fa-users"></i> จัดการผู้ใช้งาน</h2>
+                <div class="page-header flex justify-between items-center">
+                    <div>
+                        <h1 class="page-title">จัดการผู้ใช้งาน</h1>
+                        <p class="page-subtitle">เพิ่ม แก้ไข หรือลบข้อมูลนักศึกษาและอาจารย์</p>
+                    </div>
                     <button class="btn btn-primary" onclick="showAddUserModal()">
                         <i class="fas fa-plus"></i> เพิ่มผู้ใช้
                     </button>
                 </div>
                 
-                <div class="card">
+                <div class="card mb-3">
                     <div class="card-header">
-                        <h3>รายชื่อนักศึกษา</h3>
+                        <h3 class="card-title"><i class="fas fa-user-graduate icon"></i> รายชื่อนักศึกษา</h3>
                     </div>
                     <div class="card-body">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>อีเมล</th>
-                                    <th>ชื่อ</th>
-                                    <th>กลุ่ม</th>
-                                    <th>สถานะ</th>
-                                    <th>การดำเนินการ</th>
-                                </tr>
-                            </thead>
-                            <tbody id="students-table">
-                                <!-- Dynamic content -->
-                            </tbody>
-                        </table>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>อีเมล</th>
+                                        <th>ชื่อ</th>
+                                        <th>กลุ่ม</th>
+                                        <th>สถานะ</th>
+                                        <th>การดำเนินการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="students-table">
+                                    <!-- Dynamic content -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
-                <div class="card mt-4">
+                <div class="card">
                     <div class="card-header">
-                        <h3>รายชื่ออาจารย์</h3>
+                        <h3 class="card-title"><i class="fas fa-chalkboard-teacher icon"></i> รายชื่ออาจารย์</h3>
                     </div>
                     <div class="card-body">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>อีเมล</th>
-                                    <th>ชื่อ</th>
-                                    <th>กลุ่มที่ดูแล</th>
-                                    <th>การดำเนินการ</th>
-                                </tr>
-                            </thead>
-                            <tbody id="teachers-table">
-                                <!-- Dynamic content -->
-                            </tbody>
-                        </table>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>อีเมล</th>
+                                        <th>ชื่อ</th>
+                                        <th>กลุ่มที่ดูแล</th>
+                                        <th>การดำเนินการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="teachers-table">
+                                    <!-- Dynamic content -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Groups Management -->
             <div id="admin-groups" class="tab-content hidden">
-                <div class="content-header">
-                    <h2><i class="fas fa-layer-group"></i> จัดการกลุ่ม</h2>
+                <div class="page-header flex justify-between items-center">
+                    <div>
+                        <h1 class="page-title">จัดการกลุ่ม</h1>
+                        <p class="page-subtitle">สร้างและจัดการกลุ่มนักศึกษา</p>
+                    </div>
                     <button class="btn btn-primary" onclick="showAddGroupModal()">
                         <i class="fas fa-plus"></i> สร้างกลุ่ม
                     </button>
@@ -177,9 +175,12 @@
 
             <!-- Events Management -->
             <div id="admin-events" class="tab-content hidden">
-                <div class="content-header">
-                    <h2><i class="fas fa-calendar-alt"></i> จัดการอีเวนท์</h2>
-                    <button class="btn btn-primary" onclick="showAddEventModal()">
+                <div class="page-header flex justify-between items-center">
+                    <div>
+                        <h1 class="page-title">จัดการอีเวนท์</h1>
+                        <p class="page-subtitle">กำหนดช่วงเวลากิจกรรม Experiential Learning</p>
+                    </div>
+                    <button class="btn btn-accent" onclick="showAddEventModal()">
                         <i class="fas fa-plus"></i> สร้างอีเวนท์
                     </button>
                 </div>
@@ -191,52 +192,53 @@
 
             <!-- Statistics -->
             <div id="admin-stats" class="tab-content hidden">
-                <div class="content-header">
-                    <h2><i class="fas fa-chart-bar"></i> สถิติการใช้งาน</h2>
+                <div class="page-header">
+                    <h1 class="page-title">สถิติการใช้งาน</h1>
+                    <p class="page-subtitle">ภาพรวมการบันทึกของนักศึกษาทั้งหมด</p>
                 </div>
                 
                 <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon blue">
+                    <div class="stat-card primary">
+                        <div class="stat-icon">
                             <i class="fas fa-users"></i>
                         </div>
-                        <div class="stat-info">
-                            <h3 id="stat-total-students">0</h3>
-                            <p>นักศึกษาทั้งหมด</p>
+                        <div class="stat-content">
+                            <div class="stat-value" id="stat-total-students">0</div>
+                            <div class="stat-label">นักศึกษาทั้งหมด</div>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon green">
+                    <div class="stat-card success">
+                        <div class="stat-icon">
                             <i class="fas fa-check-circle"></i>
                         </div>
-                        <div class="stat-info">
-                            <h3 id="stat-completed-today">0</h3>
-                            <p>บันทึกวันนี้แล้ว</p>
+                        <div class="stat-content">
+                            <div class="stat-value" id="stat-completed-today">0</div>
+                            <div class="stat-label">บันทึกวันนี้แล้ว</div>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon orange">
+                    <div class="stat-card accent">
+                        <div class="stat-icon">
                             <i class="fas fa-clock"></i>
                         </div>
-                        <div class="stat-info">
-                            <h3 id="stat-pending-today">0</h3>
-                            <p>ยังไม่ได้บันทึก</p>
+                        <div class="stat-content">
+                            <div class="stat-value" id="stat-pending-today">0</div>
+                            <div class="stat-label">ยังไม่ได้บันทึก</div>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon purple">
+                    <div class="stat-card info">
+                        <div class="stat-icon">
                             <i class="fas fa-percentage"></i>
                         </div>
-                        <div class="stat-info">
-                            <h3 id="stat-completion-rate">0%</h3>
-                            <p>อัตราการบันทึก</p>
+                        <div class="stat-content">
+                            <div class="stat-value" id="stat-completion-rate">0%</div>
+                            <div class="stat-label">อัตราการบันทึก</div>
                         </div>
                     </div>
                 </div>
 
-                <div class="card mt-4">
+                <div class="card mt-3">
                     <div class="card-header">
-                        <h3>สถิติรายกลุ่ม</h3>
+                        <h3 class="card-title"><i class="fas fa-layer-group icon"></i> สถิติรายกลุ่ม</h3>
                     </div>
                     <div class="card-body">
                         <div id="group-stats-container">
@@ -245,24 +247,26 @@
                     </div>
                 </div>
 
-                <div class="card mt-4">
+                <div class="card mt-3">
                     <div class="card-header">
-                        <h3>รายละเอียดการบันทึกรายวัน</h3>
+                        <h3 class="card-title"><i class="fas fa-calendar-check icon"></i> รายละเอียดการบันทึกรายวัน</h3>
                     </div>
                     <div class="card-body">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>วันที่</th>
-                                    <th>บันทึกแล้ว</th>
-                                    <th>ยังไม่บันทึก</th>
-                                    <th>อัตรา</th>
-                                </tr>
-                            </thead>
-                            <tbody id="daily-stats-table">
-                                <!-- Dynamic content -->
-                            </tbody>
-                        </table>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>วันที่</th>
+                                        <th>บันทึกแล้ว</th>
+                                        <th>ยังไม่บันทึก</th>
+                                        <th>อัตรา</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="daily-stats-table">
+                                    <!-- Dynamic content -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -273,37 +277,40 @@
     <div id="teacher-page" class="page hidden">
         <nav class="navbar">
             <div class="nav-brand">
-                <i class="fas fa-book-open"></i>
-                <span>EL Journal</span>
-                <span class="badge badge-teacher">อาจารย์</span>
-            </div>
-            <div class="nav-menu">
-                <button class="nav-item active" data-tab="teacher-students">
-                    <i class="fas fa-users"></i>
-                    นักศึกษาในกลุ่ม
-                </button>
-                <button class="nav-item" data-tab="teacher-overview">
-                    <i class="fas fa-chart-line"></i>
-                    ภาพรวม
-                </button>
+                <div class="nav-logo">📚</div>
+                <span class="nav-title">EL Journal</span>
             </div>
             <div class="nav-user">
-                <span id="teacher-name">อาจารย์</span>
-                <button id="teacher-logout" class="btn btn-outline btn-sm">
+                <div class="user-info">
+                    <div class="user-avatar" id="teacher-avatar">T</div>
+                    <span class="user-name" id="teacher-name">อาจารย์</span>
+                    <span class="role-badge teacher">อาจารย์</span>
+                </div>
+                <button id="teacher-logout" class="btn-logout">
                     <i class="fas fa-sign-out-alt"></i>
-                    ออกจากระบบ
+                    <span>ออกจากระบบ</span>
                 </button>
             </div>
         </nav>
 
         <main class="main-content">
+            <!-- Tab Navigation -->
+            <div class="tab-nav">
+                <button class="tab-btn active" data-tab="teacher-students">
+                    <span class="icon"><i class="fas fa-users"></i></span>
+                    นักศึกษาในกลุ่ม
+                </button>
+                <button class="tab-btn" data-tab="teacher-overview">
+                    <span class="icon"><i class="fas fa-chart-line"></i></span>
+                    ภาพรวม
+                </button>
+            </div>
+
             <!-- Students List -->
             <div id="teacher-students" class="tab-content active">
-                <div class="content-header">
-                    <h2><i class="fas fa-users"></i> นักศึกษาในกลุ่ม</h2>
-                    <div class="header-info">
-                        <span id="teacher-group-name" class="badge badge-info"></span>
-                    </div>
+                <div class="page-header">
+                    <h1 class="page-title">นักศึกษาในกลุ่ม</h1>
+                    <p class="page-subtitle">ดูบันทึกและความก้าวหน้าของนักศึกษา <span id="teacher-group-name" class="badge badge-info"></span></p>
                 </div>
                 
                 <div id="teacher-students-grid" class="students-grid">
@@ -313,27 +320,28 @@
 
             <!-- Overview -->
             <div id="teacher-overview" class="tab-content hidden">
-                <div class="content-header">
-                    <h2><i class="fas fa-chart-line"></i> ภาพรวมกลุ่ม</h2>
+                <div class="page-header">
+                    <h1 class="page-title">ภาพรวมกลุ่ม</h1>
+                    <p class="page-subtitle">สรุปสถิติการบันทึกของนักศึกษาในกลุ่ม</p>
                 </div>
                 
                 <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon blue">
+                    <div class="stat-card primary">
+                        <div class="stat-icon">
                             <i class="fas fa-users"></i>
                         </div>
-                        <div class="stat-info">
-                            <h3 id="teacher-stat-students">0</h3>
-                            <p>นักศึกษาในกลุ่ม</p>
+                        <div class="stat-content">
+                            <div class="stat-value" id="teacher-stat-students">0</div>
+                            <div class="stat-label">นักศึกษาในกลุ่ม</div>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon green">
+                    <div class="stat-card success">
+                        <div class="stat-icon">
                             <i class="fas fa-check-circle"></i>
                         </div>
-                        <div class="stat-info">
-                            <h3 id="teacher-stat-completed">0</h3>
-                            <p>บันทึกครบแล้ว</p>
+                        <div class="stat-content">
+                            <div class="stat-value" id="teacher-stat-completed">0</div>
+                            <div class="stat-label">บันทึกครบแล้ว</div>
                         </div>
                     </div>
                 </div>
@@ -345,15 +353,15 @@
     <div id="student-detail-page" class="page hidden">
         <nav class="navbar">
             <div class="nav-brand">
-                <button class="btn btn-ghost" onclick="backToTeacherDashboard()">
-                    <i class="fas fa-arrow-left"></i>
+                <button class="btn btn-secondary btn-sm" onclick="backToTeacherDashboard()">
+                    <i class="fas fa-arrow-left"></i> กลับ
                 </button>
-                <span id="viewing-student-name">นักศึกษา</span>
+                <span class="nav-title" id="viewing-student-name">นักศึกษา</span>
             </div>
             <div class="nav-user">
-                <button id="student-detail-logout" class="btn btn-outline btn-sm">
+                <button id="student-detail-logout" class="btn-logout">
                     <i class="fas fa-sign-out-alt"></i>
-                    ออกจากระบบ
+                    <span>ออกจากระบบ</span>
                 </button>
             </div>
         </nav>
@@ -361,43 +369,51 @@
         <main class="main-content">
             <div class="student-detail-container">
                 <div class="detail-sidebar">
-                    <div class="student-profile-card">
-                        <div class="profile-avatar">
-                            <i class="fas fa-user-graduate"></i>
-                        </div>
-                        <h3 id="detail-student-name"></h3>
-                        <p id="detail-student-email"></p>
-                        <div class="profile-stats">
-                            <div class="profile-stat">
-                                <span class="stat-value" id="detail-journals-count">0</span>
-                                <span class="stat-label">บันทึก</span>
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <div class="student-avatar" style="width:80px;height:80px;font-size:2rem;margin:0 auto 1rem;">
+                                <i class="fas fa-user-graduate"></i>
                             </div>
-                            <div class="profile-stat">
-                                <span class="stat-value" id="detail-completion">0%</span>
-                                <span class="stat-label">ความครบถ้วน</span>
+                            <h3 id="detail-student-name" style="font-family:var(--font-display);margin-bottom:0.25rem;"></h3>
+                            <p id="detail-student-email" style="color:var(--text-muted);font-size:0.875rem;"></p>
+                            <div class="flex justify-center gap-2 mt-2">
+                                <div class="journey-stat" style="flex:1;">
+                                    <div class="value" id="detail-journals-count">0</div>
+                                    <div class="label">บันทึก</div>
+                                </div>
+                                <div class="journey-stat" style="flex:1;">
+                                    <div class="value" id="detail-completion">0%</div>
+                                    <div class="label">ความครบถ้วน</div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- AI Skill Gap Analysis -->
-                    <div class="card ai-analysis-card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-robot"></i> AI วิเคราะห์ Skill Gap</h3>
-                            <button class="btn btn-sm btn-primary" onclick="analyzeSkillGap()">
-                                <i class="fas fa-sync"></i> วิเคราะห์
-                            </button>
+                    <div class="ai-panel mt-3">
+                        <div class="ai-panel-header">
+                            <div class="ai-icon">🤖</div>
+                            <h3>AI วิเคราะห์ Skill Gap</h3>
                         </div>
-                        <div class="card-body">
-                            <div id="ai-analysis-result" class="ai-result">
-                                <p class="placeholder-text">กดปุ่ม "วิเคราะห์" เพื่อให้ AI ช่วยวิเคราะห์ Skill Gap</p>
-                            </div>
+                        <button class="btn btn-primary w-full mb-2" onclick="analyzeSkillGap()">
+                            <i class="fas fa-sync"></i> วิเคราะห์
+                        </button>
+                        <div id="ai-analysis-result" class="ai-content">
+                            <p class="text-center" style="color:var(--text-muted);">กดปุ่ม "วิเคราะห์" เพื่อให้ AI ช่วยวิเคราะห์ Skill Gap</p>
                         </div>
                     </div>
                 </div>
 
                 <div class="detail-main">
-                    <div class="journals-timeline" id="student-journals-timeline">
-                        <!-- Dynamic content -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="fas fa-history icon"></i> บันทึกย้อนหลัง</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="timeline" id="student-journals-timeline">
+                                <!-- Dynamic content -->
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -408,46 +424,51 @@
     <div id="student-page" class="page hidden">
         <nav class="navbar">
             <div class="nav-brand">
-                <i class="fas fa-book-open"></i>
-                <span>EL Journal</span>
-                <span class="badge badge-student">นักศึกษา</span>
-            </div>
-            <div class="nav-menu">
-                <button class="nav-item active" data-tab="student-calendar">
-                    <i class="fas fa-calendar-alt"></i>
-                    ปฏิทิน
-                </button>
-                <button class="nav-item" data-tab="student-journal">
-                    <i class="fas fa-pen"></i>
-                    บันทึกวันนี้
-                </button>
-                <button class="nav-item" data-tab="student-history">
-                    <i class="fas fa-history"></i>
-                    บันทึกย้อนหลัง
-                </button>
-                <button class="nav-item" data-tab="student-community">
-                    <i class="fas fa-users"></i>
-                    โน้ตชุมชน
-                </button>
-                <button class="nav-item" data-tab="student-journey">
-                    <i class="fas fa-map"></i>
-                    Learning Journey
-                </button>
+                <div class="nav-logo">📚</div>
+                <span class="nav-title">EL Journal</span>
             </div>
             <div class="nav-user">
-                <span id="student-name">นักศึกษา</span>
-                <button id="student-logout" class="btn btn-outline btn-sm">
+                <div class="user-info">
+                    <div class="user-avatar" id="student-avatar">S</div>
+                    <span class="user-name" id="student-name">นักศึกษา</span>
+                    <span class="role-badge student">นักศึกษา</span>
+                </div>
+                <button id="student-logout" class="btn-logout">
                     <i class="fas fa-sign-out-alt"></i>
-                    ออกจากระบบ
+                    <span>ออกจากระบบ</span>
                 </button>
             </div>
         </nav>
 
         <main class="main-content">
+            <!-- Tab Navigation -->
+            <div class="tab-nav">
+                <button class="tab-btn active" data-tab="student-calendar">
+                    <span class="icon"><i class="fas fa-calendar-alt"></i></span>
+                    ปฏิทิน
+                </button>
+                <button class="tab-btn" data-tab="student-journal">
+                    <span class="icon"><i class="fas fa-pen"></i></span>
+                    บันทึกวันนี้
+                </button>
+                <button class="tab-btn" data-tab="student-history">
+                    <span class="icon"><i class="fas fa-history"></i></span>
+                    บันทึกย้อนหลัง
+                </button>
+                <button class="tab-btn" data-tab="student-community">
+                    <span class="icon"><i class="fas fa-users"></i></span>
+                    โน้ตชุมชน
+                </button>
+                <button class="tab-btn" data-tab="student-journey">
+                    <span class="icon"><i class="fas fa-map"></i></span>
+                    Learning Journey
+                </button>
+            </div>
+
             <!-- Calendar View -->
             <div id="student-calendar" class="tab-content active">
-                <div class="content-header">
-                    <h2><i class="fas fa-calendar-alt"></i> ปฏิทินกิจกรรม</h2>
+                <div class="page-header">
+                    <h1 class="page-title">ปฏิทินกิจกรรม</h1>
                     <div class="event-info" id="current-event-info">
                         <!-- Dynamic content -->
                     </div>
@@ -455,236 +476,248 @@
                 
                 <div class="calendar-container">
                     <div class="calendar-header">
-                        <button class="btn btn-ghost" id="prev-month">
+                        <button class="btn btn-icon" id="prev-month" style="background:rgba(255,255,255,0.2);color:white;border:none;">
                             <i class="fas fa-chevron-left"></i>
                         </button>
-                        <h3 id="calendar-month-year"></h3>
-                        <button class="btn btn-ghost" id="next-month">
+                        <h3 class="calendar-title" id="calendar-month-year"></h3>
+                        <button class="btn btn-icon" id="next-month" style="background:rgba(255,255,255,0.2);color:white;border:none;">
                             <i class="fas fa-chevron-right"></i>
                         </button>
                     </div>
-                    <div class="calendar-grid">
-                        <div class="calendar-day-header">อา</div>
-                        <div class="calendar-day-header">จ</div>
-                        <div class="calendar-day-header">อ</div>
-                        <div class="calendar-day-header">พ</div>
-                        <div class="calendar-day-header">พฤ</div>
-                        <div class="calendar-day-header">ศ</div>
-                        <div class="calendar-day-header">ส</div>
+                    <div class="calendar-weekdays">
+                        <div class="calendar-weekday">อา</div>
+                        <div class="calendar-weekday">จ</div>
+                        <div class="calendar-weekday">อ</div>
+                        <div class="calendar-weekday">พ</div>
+                        <div class="calendar-weekday">พฤ</div>
+                        <div class="calendar-weekday">ศ</div>
+                        <div class="calendar-weekday">ส</div>
                     </div>
                     <div class="calendar-days" id="calendar-days">
                         <!-- Dynamic content -->
                     </div>
                 </div>
 
-                <div class="calendar-legend">
-                    <div class="legend-item">
-                        <span class="legend-dot completed"></span>
+                <div class="flex justify-center gap-3 mt-2" style="font-size:0.8125rem;color:var(--text-secondary);">
+                    <div class="flex items-center gap-1">
+                        <span class="day-status completed"></span>
                         <span>บันทึกแล้ว</span>
                     </div>
-                    <div class="legend-item">
-                        <span class="legend-dot pending"></span>
+                    <div class="flex items-center gap-1">
+                        <span class="day-status pending"></span>
                         <span>ยังไม่ได้บันทึก</span>
-                    </div>
-                    <div class="legend-item">
-                        <span class="legend-dot today"></span>
-                        <span>วันนี้</span>
                     </div>
                 </div>
             </div>
 
             <!-- Journal Entry -->
             <div id="student-journal" class="tab-content hidden">
-                <div class="content-header">
-                    <h2><i class="fas fa-pen"></i> บันทึก Reflection</h2>
-                    <span class="journal-date" id="journal-date"></span>
-                </div>
+                <div class="journal-form-container">
+                    <div class="journal-date-header">
+                        <div class="date-icon">📝</div>
+                        <h3>บันทึก Reflection</h3>
+                        <p id="journal-date"></p>
+                    </div>
                 
-                <form id="journal-form" class="journal-form">
-                    <div class="journal-section">
-                        <h3><i class="fas fa-comment-dots"></i> สิ่งที่ได้เรียนรู้วันนี้</h3>
-                        <textarea id="journal-learning" rows="4" placeholder="เขียนสิ่งที่คุณได้เรียนรู้จากกิจกรรมวันนี้..."></textarea>
-                    </div>
+                    <form id="journal-form" class="journal-form">
+                        <div class="form-section">
+                            <h3 class="form-section-title"><i class="fas fa-comment-dots icon"></i> สิ่งที่ได้เรียนรู้วันนี้</h3>
+                            <textarea id="journal-learning" rows="4" placeholder="เขียนสิ่งที่คุณได้เรียนรู้จากกิจกรรมวันนี้..."></textarea>
+                        </div>
 
-                    <div class="journal-section">
-                        <h3><i class="fas fa-heart"></i> ความรู้สึกและอารมณ์</h3>
-                        <textarea id="journal-feeling" rows="3" placeholder="คุณรู้สึกอย่างไรบ้าง..."></textarea>
-                    </div>
+                        <div class="form-section">
+                            <h3 class="form-section-title"><i class="fas fa-heart icon"></i> ความรู้สึกและอารมณ์</h3>
+                            <textarea id="journal-feeling" rows="3" placeholder="คุณรู้สึกอย่างไรบ้าง..."></textarea>
+                        </div>
 
-                    <div class="journal-section">
-                        <h3><i class="fas fa-lightbulb"></i> สิ่งที่อยากนำไปใช้ต่อ</h3>
-                        <textarea id="journal-application" rows="3" placeholder="คุณจะนำสิ่งที่เรียนรู้ไปใช้อย่างไร..."></textarea>
-                    </div>
+                        <div class="form-section">
+                            <h3 class="form-section-title"><i class="fas fa-lightbulb icon"></i> สิ่งที่อยากนำไปใช้ต่อ</h3>
+                            <textarea id="journal-application" rows="3" placeholder="คุณจะนำสิ่งที่เรียนรู้ไปใช้อย่างไร..."></textarea>
+                        </div>
 
-                    <div class="journal-section">
-                        <h3><i class="fas fa-paperclip"></i> แนบไฟล์ (รูป, PDF, เสียง)</h3>
-                        <div class="file-upload-area" id="journal-file-area">
-                            <input type="file" id="journal-files" multiple accept="image/*,.pdf,audio/*">
-                            <div class="upload-placeholder">
-                                <i class="fas fa-cloud-upload-alt"></i>
+                        <div class="form-section">
+                            <h3 class="form-section-title"><i class="fas fa-paperclip icon"></i> แนบไฟล์ (รูป, PDF, เสียง)</h3>
+                            <div class="file-upload-area" id="journal-file-area">
+                                <input type="file" id="journal-files" multiple accept="image/*,.pdf,audio/*" style="display:none;">
+                                <div class="upload-icon">📎</div>
                                 <p>คลิกหรือลากไฟล์มาวางที่นี่</p>
                                 <span>รองรับ: รูปภาพ, PDF, ไฟล์เสียง</span>
                             </div>
+                            <div id="file-preview" class="file-preview"></div>
                         </div>
-                        <div id="file-preview" class="file-preview"></div>
-                    </div>
 
-                    <div class="journal-section clo-section">
-                        <h3><i class="fas fa-star"></i> ประเมินตัวเองตาม CLO</h3>
-                        <p class="section-subtitle">ให้คะแนนตัวเองในแต่ละด้าน (1-5 ดาว)</p>
-                        
                         <div class="clo-assessment">
-                            <div class="clo-item">
-                                <div class="clo-header">
-                                    <span class="clo-badge">CLO 1</span>
-                                    <span class="clo-title">เข้าใจปัญหาชุมชน</span>
+                            <h3 class="clo-assessment-title">⭐ ประเมินตัวเองตาม CLO</h3>
+                            
+                            <div class="clo-items">
+                                <div class="clo-item">
+                                    <div class="clo-item-header">
+                                        <div class="clo-label">
+                                            <h4>CLO 1: เข้าใจปัญหาชุมชน</h4>
+                                            <p>วันนี้คุณเข้าใจปัญหาของชุมชนมากแค่ไหน?</p>
+                                        </div>
+                                        <div class="star-rating" data-clo="clo1">
+                                            <i class="fas fa-star" data-value="1"></i>
+                                            <i class="fas fa-star" data-value="2"></i>
+                                            <i class="fas fa-star" data-value="3"></i>
+                                            <i class="fas fa-star" data-value="4"></i>
+                                            <i class="fas fa-star" data-value="5"></i>
+                                        </div>
+                                    </div>
                                 </div>
-                                <p class="clo-desc">วันนี้คุณเข้าใจปัญหาของชุมชนมากแค่ไหน?</p>
-                                <div class="star-rating" data-clo="clo1">
-                                    <i class="fas fa-star" data-value="1"></i>
-                                    <i class="fas fa-star" data-value="2"></i>
-                                    <i class="fas fa-star" data-value="3"></i>
-                                    <i class="fas fa-star" data-value="4"></i>
-                                    <i class="fas fa-star" data-value="5"></i>
-                                </div>
-                            </div>
 
-                            <div class="clo-item">
-                                <div class="clo-header">
-                                    <span class="clo-badge">CLO 2</span>
-                                    <span class="clo-title">สร้างสรรค์นวัตกรรม</span>
+                                <div class="clo-item">
+                                    <div class="clo-item-header">
+                                        <div class="clo-label">
+                                            <h4>CLO 2: สร้างสรรค์นวัตกรรม</h4>
+                                            <p>วันนี้คุณมีส่วนร่วมสร้างสรรค์แนวทางใหม่ๆ มากแค่ไหน?</p>
+                                        </div>
+                                        <div class="star-rating" data-clo="clo2">
+                                            <i class="fas fa-star" data-value="1"></i>
+                                            <i class="fas fa-star" data-value="2"></i>
+                                            <i class="fas fa-star" data-value="3"></i>
+                                            <i class="fas fa-star" data-value="4"></i>
+                                            <i class="fas fa-star" data-value="5"></i>
+                                        </div>
+                                    </div>
                                 </div>
-                                <p class="clo-desc">วันนี้คุณมีส่วนร่วมสร้างสรรค์แนวทางใหม่ๆ มากแค่ไหน?</p>
-                                <div class="star-rating" data-clo="clo2">
-                                    <i class="fas fa-star" data-value="1"></i>
-                                    <i class="fas fa-star" data-value="2"></i>
-                                    <i class="fas fa-star" data-value="3"></i>
-                                    <i class="fas fa-star" data-value="4"></i>
-                                    <i class="fas fa-star" data-value="5"></i>
-                                </div>
-                            </div>
 
-                            <div class="clo-item">
-                                <div class="clo-header">
-                                    <span class="clo-badge">CLO 3</span>
-                                    <span class="clo-title">ทำงานร่วมกับผู้อื่น</span>
+                                <div class="clo-item">
+                                    <div class="clo-item-header">
+                                        <div class="clo-label">
+                                            <h4>CLO 3: ทำงานร่วมกับผู้อื่น</h4>
+                                            <p>วันนี้คุณสื่อสารและทำงานร่วมกับทีมได้ดีแค่ไหน?</p>
+                                        </div>
+                                        <div class="star-rating" data-clo="clo3">
+                                            <i class="fas fa-star" data-value="1"></i>
+                                            <i class="fas fa-star" data-value="2"></i>
+                                            <i class="fas fa-star" data-value="3"></i>
+                                            <i class="fas fa-star" data-value="4"></i>
+                                            <i class="fas fa-star" data-value="5"></i>
+                                        </div>
+                                    </div>
                                 </div>
-                                <p class="clo-desc">วันนี้คุณสื่อสารและทำงานร่วมกับทีมได้ดีแค่ไหน?</p>
-                                <div class="star-rating" data-clo="clo3">
-                                    <i class="fas fa-star" data-value="1"></i>
-                                    <i class="fas fa-star" data-value="2"></i>
-                                    <i class="fas fa-star" data-value="3"></i>
-                                    <i class="fas fa-star" data-value="4"></i>
-                                    <i class="fas fa-star" data-value="5"></i>
-                                </div>
-                            </div>
 
-                            <div class="clo-item">
-                                <div class="clo-header">
-                                    <span class="clo-badge">CLO 4</span>
-                                    <span class="clo-title">รับผิดชอบต่อสังคม</span>
-                                </div>
-                                <p class="clo-desc">วันนี้คุณรู้สึกมีส่วนร่วมรับผิดชอบต่อชุมชนมากแค่ไหน?</p>
-                                <div class="star-rating" data-clo="clo4">
-                                    <i class="fas fa-star" data-value="1"></i>
-                                    <i class="fas fa-star" data-value="2"></i>
-                                    <i class="fas fa-star" data-value="3"></i>
-                                    <i class="fas fa-star" data-value="4"></i>
-                                    <i class="fas fa-star" data-value="5"></i>
+                                <div class="clo-item">
+                                    <div class="clo-item-header">
+                                        <div class="clo-label">
+                                            <h4>CLO 4: รับผิดชอบต่อสังคม</h4>
+                                            <p>วันนี้คุณรู้สึกมีส่วนร่วมรับผิดชอบต่อชุมชนมากแค่ไหน?</p>
+                                        </div>
+                                        <div class="star-rating" data-clo="clo4">
+                                            <i class="fas fa-star" data-value="1"></i>
+                                            <i class="fas fa-star" data-value="2"></i>
+                                            <i class="fas fa-star" data-value="3"></i>
+                                            <i class="fas fa-star" data-value="4"></i>
+                                            <i class="fas fa-star" data-value="5"></i>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary btn-lg">
-                            <i class="fas fa-save"></i>
-                            บันทึก
-                        </button>
-                    </div>
-                </form>
+                        <div class="form-section text-center">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-save"></i>
+                                บันทึก
+                            </button>
+                        </div>
+                    </form>
 
-                <!-- Teacher Notes (visible if teacher made it visible) -->
-                <div id="teacher-notes-section" class="teacher-notes-section hidden">
-                    <div class="card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-comment-medical"></i> โน้ตจากอาจารย์</h3>
+                    <!-- Teacher Notes (visible if teacher made it visible) -->
+                    <div id="teacher-notes-section" class="ai-panel hidden mt-3" style="background:linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);border-color:#93c5fd;">
+                        <div class="ai-panel-header">
+                            <div class="ai-icon" style="background:linear-gradient(135deg, var(--role-teacher) 0%, #1d4ed8 100%);">💬</div>
+                            <h3 style="color:#1e40af;">โน้ตจากอาจารย์</h3>
                         </div>
-                        <div class="card-body">
-                            <div id="teacher-notes-content"></div>
-                        </div>
+                        <div id="teacher-notes-content" class="ai-content"></div>
                     </div>
                 </div>
             </div>
 
             <!-- History -->
             <div id="student-history" class="tab-content hidden">
-                <div class="content-header">
-                    <h2><i class="fas fa-history"></i> บันทึกย้อนหลัง</h2>
+                <div class="page-header">
+                    <h1 class="page-title">บันทึกย้อนหลัง</h1>
+                    <p class="page-subtitle">ดูบันทึก Reflection ที่ผ่านมา</p>
                 </div>
                 
-                <div id="history-container" class="history-container">
-                    <!-- Dynamic content -->
+                <div class="card">
+                    <div class="card-body">
+                        <div id="history-container" class="timeline">
+                            <!-- Dynamic content -->
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <!-- Community Notes -->
             <div id="student-community" class="tab-content hidden">
-                <div class="content-header">
-                    <h2><i class="fas fa-users"></i> โน้ตสิ่งที่ค้นพบจากชุมชน</h2>
-                    <p class="header-subtitle">บันทึกสิ่งที่คุณค้นพบ สังเกต หรือต้องการจดจำจากชุมชน (ไม่บังคับ)</p>
+                <div class="page-header">
+                    <h1 class="page-title">โน้ตสิ่งที่ค้นพบจากชุมชน</h1>
+                    <p class="page-subtitle">บันทึกสิ่งที่คุณค้นพบ สังเกต หรือต้องการจดจำจากชุมชน (ไม่บังคับ)</p>
                 </div>
                 
-                <div class="community-notes-container">
-                    <form id="community-note-form" class="community-note-form">
-                        <div class="form-group">
-                            <label>หัวข้อ</label>
-                            <input type="text" id="community-note-title" placeholder="เช่น ภูมิปัญญาท้องถิ่น, ปัญหาที่พบ">
-                        </div>
-                        <div class="form-group">
-                            <label>รายละเอียด</label>
-                            <textarea id="community-note-content" rows="4" placeholder="บันทึกรายละเอียดที่คุณค้นพบ..."></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>แนบไฟล์</label>
-                            <input type="file" id="community-note-files" multiple>
-                        </div>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-plus"></i> เพิ่มโน้ต
-                        </button>
-                    </form>
-
-                    <div id="community-notes-list" class="community-notes-list">
-                        <!-- Dynamic content -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <form id="community-note-form" class="flex flex-col gap-2">
+                            <div class="form-group">
+                                <label>หัวข้อ</label>
+                                <input type="text" id="community-note-title" placeholder="เช่น ภูมิปัญญาท้องถิ่น, ปัญหาที่พบ">
+                            </div>
+                            <div class="form-group">
+                                <label>รายละเอียด</label>
+                                <textarea id="community-note-content" rows="4" placeholder="บันทึกรายละเอียดที่คุณค้นพบ..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>แนบไฟล์</label>
+                                <input type="file" id="community-note-files" multiple>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> เพิ่มโน้ต
+                            </button>
+                        </form>
                     </div>
+                </div>
+
+                <div id="community-notes-list" class="flex flex-col gap-2">
+                    <!-- Dynamic content -->
                 </div>
             </div>
 
             <!-- Learning Journey -->
             <div id="student-journey" class="tab-content hidden">
-                <div class="content-header">
-                    <h2><i class="fas fa-map"></i> Learning Journey</h2>
-                </div>
-                
-                <div id="journey-container" class="journey-container">
-                    <div id="journey-incomplete" class="journey-incomplete">
-                        <div class="journey-progress-card">
-                            <i class="fas fa-hourglass-half"></i>
-                            <h3>กำลังสร้าง Learning Journey</h3>
+                <div class="journey-container">
+                    <div id="journey-incomplete">
+                        <div class="journey-header">
+                            <h2>🗺️ Learning Journey</h2>
                             <p>กรุณาบันทึก Reflection ให้ครบทุกวันก่อน</p>
-                            <div class="progress-bar">
-                                <div class="progress-fill" id="journey-progress-bar"></div>
+                        </div>
+                        
+                        <div class="card text-center" style="max-width:500px;margin:2rem auto;">
+                            <div class="card-body">
+                                <div style="font-size:4rem;margin-bottom:1rem;">⏳</div>
+                                <h3 style="margin-bottom:1rem;font-family:var(--font-display);">กำลังสร้าง Learning Journey</h3>
+                                <div class="progress-bar mb-2">
+                                    <div class="progress-fill" id="journey-progress-bar" style="width:0%"></div>
+                                </div>
+                                <span id="journey-progress-text" style="color:var(--text-secondary);">0/0 วัน</span>
                             </div>
-                            <span id="journey-progress-text">0/0 วัน</span>
                         </div>
                     </div>
 
-                    <div id="journey-complete" class="journey-complete hidden">
-                        <div class="journey-preview" id="journey-preview">
+                    <div id="journey-complete" class="hidden">
+                        <div class="journey-header">
+                            <h2>🎉 Learning Journey ของคุณ</h2>
+                            <p>สรุปการเรียนรู้จากประสบการณ์ตลอดกิจกรรม</p>
+                        </div>
+                        
+                        <div id="journey-preview" class="mb-3">
                             <!-- Dynamic content -->
                         </div>
-                        <div class="journey-actions">
-                            <button class="btn btn-primary btn-lg" onclick="generateJourneyPDF()">
+                        
+                        <div class="text-center">
+                            <button class="btn btn-accent btn-lg" onclick="generateJourneyPDF()">
                                 <i class="fas fa-download"></i>
                                 ดาวน์โหลด PDF (A3)
                             </button>
@@ -696,157 +729,144 @@
     </div>
 
     <!-- Modals -->
-    <div id="modal-overlay" class="modal-overlay hidden">
-        <div id="modal-container" class="modal-container">
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal" id="modal-container">
             <!-- Dynamic modal content -->
         </div>
     </div>
 
     <!-- Add User Modal Template -->
     <template id="add-user-modal-template">
-        <div class="modal">
-            <div class="modal-header">
-                <h3><i class="fas fa-user-plus"></i> เพิ่มผู้ใช้</h3>
-                <button class="modal-close" onclick="closeModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="add-user-form">
-                    <div class="form-group">
-                        <label>ประเภทผู้ใช้</label>
-                        <select id="user-type" required>
-                            <option value="student">นักศึกษา</option>
-                            <option value="teacher">อาจารย์</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>อีเมล</label>
-                        <input type="email" id="user-email" required placeholder="email@example.com">
-                    </div>
-                    <div class="form-group">
-                        <label>ชื่อ-นามสกุล</label>
-                        <input type="text" id="user-name" required placeholder="ชื่อ นามสกุล">
-                    </div>
-                    <div class="form-group">
-                        <label>รหัสผ่าน</label>
-                        <input type="password" id="user-password" required minlength="6" placeholder="อย่างน้อย 6 ตัวอักษร">
-                    </div>
-                    <div class="form-group" id="student-group-field">
-                        <label>กลุ่ม</label>
-                        <select id="user-group">
-                            <option value="">-- ยังไม่กำหนดกลุ่ม --</option>
-                        </select>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-outline" onclick="closeModal()">ยกเลิก</button>
-                        <button type="submit" class="btn btn-primary">เพิ่มผู้ใช้</button>
-                    </div>
-                </form>
-            </div>
+        <div class="modal-header">
+            <h3>เพิ่มผู้ใช้</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <form id="add-user-form" class="flex flex-col gap-2">
+                <div class="form-group">
+                    <label>ประเภทผู้ใช้</label>
+                    <select id="user-type" class="form-select" required>
+                        <option value="student">นักศึกษา</option>
+                        <option value="teacher">อาจารย์</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>อีเมล</label>
+                    <input type="email" id="user-email" required placeholder="email@example.com">
+                </div>
+                <div class="form-group">
+                    <label>ชื่อ-นามสกุล</label>
+                    <input type="text" id="user-name" required placeholder="ชื่อ นามสกุล">
+                </div>
+                <div class="form-group">
+                    <label>รหัสผ่าน</label>
+                    <input type="password" id="user-password" required minlength="6" placeholder="อย่างน้อย 6 ตัวอักษร">
+                </div>
+                <div class="form-group" id="student-group-field">
+                    <label>กลุ่ม</label>
+                    <select id="user-group" class="form-select">
+                        <option value="">-- ยังไม่กำหนดกลุ่ม --</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+            <button type="submit" form="add-user-form" class="btn btn-primary">เพิ่มผู้ใช้</button>
         </div>
     </template>
 
     <!-- Add Group Modal Template -->
     <template id="add-group-modal-template">
-        <div class="modal">
-            <div class="modal-header">
-                <h3><i class="fas fa-layer-group"></i> สร้างกลุ่ม</h3>
-                <button class="modal-close" onclick="closeModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="add-group-form">
-                    <div class="form-group">
-                        <label>ชื่อกลุ่ม</label>
-                        <input type="text" id="group-name" required placeholder="เช่น กลุ่ม A, ทีมชุมชนบ้านนา">
-                    </div>
-                    <div class="form-group">
-                        <label>อาจารย์ที่ดูแล</label>
-                        <select id="group-teacher">
-                            <option value="">-- เลือกอาจารย์ --</option>
-                        </select>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-outline" onclick="closeModal()">ยกเลิก</button>
-                        <button type="submit" class="btn btn-primary">สร้างกลุ่ม</button>
-                    </div>
-                </form>
-            </div>
+        <div class="modal-header">
+            <h3>สร้างกลุ่ม</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <form id="add-group-form" class="flex flex-col gap-2">
+                <div class="form-group">
+                    <label>ชื่อกลุ่ม</label>
+                    <input type="text" id="group-name" required placeholder="เช่น กลุ่ม A, ทีมชุมชนบ้านนา">
+                </div>
+                <div class="form-group">
+                    <label>อาจารย์ที่ดูแล</label>
+                    <select id="group-teacher" class="form-select">
+                        <option value="">-- เลือกอาจารย์ --</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+            <button type="submit" form="add-group-form" class="btn btn-primary">สร้างกลุ่ม</button>
         </div>
     </template>
 
     <!-- Add Event Modal Template -->
     <template id="add-event-modal-template">
-        <div class="modal">
-            <div class="modal-header">
-                <h3><i class="fas fa-calendar-plus"></i> สร้างอีเวนท์</h3>
-                <button class="modal-close" onclick="closeModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="add-event-form">
-                    <div class="form-group">
-                        <label>ชื่ออีเวนท์</label>
-                        <input type="text" id="event-name" required placeholder="เช่น ค่าย EL ภาคเหนือ">
+        <div class="modal-header">
+            <h3>สร้างอีเวนท์</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <form id="add-event-form" class="flex flex-col gap-2">
+                <div class="form-group">
+                    <label>ชื่ออีเวนท์</label>
+                    <input type="text" id="event-name" required placeholder="เช่น ค่าย EL ภาคเหนือ">
+                </div>
+                <div class="flex gap-2">
+                    <div class="form-group" style="flex:1;">
+                        <label>วันเริ่มต้น</label>
+                        <input type="date" id="event-start" required>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>วันเริ่มต้น</label>
-                            <input type="date" id="event-start" required>
-                        </div>
-                        <div class="form-group">
-                            <label>วันสิ้นสุด</label>
-                            <input type="date" id="event-end" required>
-                        </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>วันสิ้นสุด</label>
+                        <input type="date" id="event-end" required>
                     </div>
-                    <div class="form-group">
-                        <label>รายละเอียด</label>
-                        <textarea id="event-description" rows="3" placeholder="รายละเอียดเพิ่มเติม..."></textarea>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-outline" onclick="closeModal()">ยกเลิก</button>
-                        <button type="submit" class="btn btn-primary">สร้างอีเวนท์</button>
-                    </div>
-                </form>
-            </div>
+                </div>
+                <div class="form-group">
+                    <label>รายละเอียด</label>
+                    <textarea id="event-description" rows="3" placeholder="รายละเอียดเพิ่มเติม..."></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+            <button type="submit" form="add-event-form" class="btn btn-accent">สร้างอีเวนท์</button>
         </div>
     </template>
 
     <!-- Teacher Note Modal Template -->
     <template id="teacher-note-modal-template">
-        <div class="modal">
-            <div class="modal-header">
-                <h3><i class="fas fa-sticky-note"></i> เขียนโน้ตให้นักศึกษา</h3>
-                <button class="modal-close" onclick="closeModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="teacher-note-form">
-                    <input type="hidden" id="note-student-id">
-                    <input type="hidden" id="note-date">
-                    <div class="form-group">
-                        <label>โน้ต/ความคิดเห็น</label>
-                        <textarea id="note-content" rows="4" placeholder="เขียนความคิดเห็นหรือคำแนะนำ..."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="note-visible">
-                            <span>แสดงให้นักศึกษาเห็น</span>
-                        </label>
-                        <small class="help-text">โดยค่าเริ่มต้น โน้ตจะซ่อนไม่ให้นักศึกษาเห็น</small>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-outline" onclick="closeModal()">ยกเลิก</button>
-                        <button type="submit" class="btn btn-primary">บันทึกโน้ต</button>
-                    </div>
-                </form>
-            </div>
+        <div class="modal-header">
+            <h3>เขียนโน้ตให้นักศึกษา</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <form id="teacher-note-form" class="flex flex-col gap-2">
+                <input type="hidden" id="note-student-id">
+                <input type="hidden" id="note-date">
+                <div class="form-group">
+                    <label>โน้ต/ความคิดเห็น</label>
+                    <textarea id="note-content" rows="4" placeholder="เขียนความคิดเห็นหรือคำแนะนำ..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="flex items-center gap-2" style="cursor:pointer;">
+                        <input type="checkbox" id="note-visible" style="width:18px;height:18px;">
+                        <span>แสดงให้นักศึกษาเห็น</span>
+                    </label>
+                    <small style="color:var(--text-muted);font-size:0.8125rem;">โดยค่าเริ่มต้น โน้ตจะซ่อนไม่ให้นักศึกษาเห็น</small>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+            <button type="submit" form="teacher-note-form" class="btn btn-primary">บันทึกโน้ต</button>
         </div>
     </template>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
 
     <!-- Scripts -->
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
