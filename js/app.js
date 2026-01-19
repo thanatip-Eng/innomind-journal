@@ -10,8 +10,7 @@ let currentEvent = null;
 let selectedDate = null;
 let selectedFiles = [];
 let viewingStudent = null;
-
-// Calendar State
+let allEvents = [];
 let calendarDate = new Date();
 
 // =====================================================
@@ -23,13 +22,18 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeApp() {
-    // Auth state listener
     auth.onAuthStateChanged(async (user) => {
         if (user) {
             currentUser = user;
             await loadUserData();
-            await loadCurrentEvent();
-            navigateToRoleDashboard();
+            
+            if (currentUserData && currentUserData.needsPasswordSetup) {
+                showSetPasswordPage();
+            } else {
+                await loadCurrentEvent();
+                await loadAllEvents();
+                navigateToRoleDashboard();
+            }
         } else {
             currentUser = null;
             currentUserRole = null;
@@ -39,13 +43,15 @@ function initializeApp() {
         hideLoading();
     });
     
-    // Setup event listeners
     setupEventListeners();
 }
 
 function setupEventListeners() {
-    // Login form
-    document.getElementById('login-form').addEventListener('submit', handleLogin);
+    // Forms
+    document.getElementById('login-form')?.addEventListener('submit', handleLogin);
+    document.getElementById('set-password-form')?.addEventListener('submit', handleSetPassword);
+    document.getElementById('journal-form')?.addEventListener('submit', handleJournalSubmit);
+    document.getElementById('community-note-form')?.addEventListener('submit', handleCommunityNoteSubmit);
     
     // Logout buttons
     document.getElementById('admin-logout')?.addEventListener('click', handleLogout);
@@ -53,31 +59,36 @@ function setupEventListeners() {
     document.getElementById('student-logout')?.addEventListener('click', handleLogout);
     document.getElementById('student-detail-logout')?.addEventListener('click', handleLogout);
     
-    // Navigation tabs
-    document.querySelectorAll('.tab-btn').forEach(item => {
-        item.addEventListener('click', (e) => {
+    // Tab navigation
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
             const tab = e.currentTarget.dataset.tab;
             if (tab) switchTab(e.currentTarget, tab);
         });
     });
     
-    // Journal form
-    document.getElementById('journal-form')?.addEventListener('submit', handleJournalSubmit);
-    
-    // Community note form
-    document.getElementById('community-note-form')?.addEventListener('submit', handleCommunityNoteSubmit);
+    // Sidebar navigation
+    document.querySelectorAll('.sidebar-item').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const tab = e.currentTarget.dataset.tab;
+            if (tab) switchSidebarTab(e.currentTarget, tab);
+        });
+    });
     
     // File upload
     document.getElementById('journal-files')?.addEventListener('change', handleFileSelect);
+    document.getElementById('journal-file-area')?.addEventListener('click', () => {
+        document.getElementById('journal-files')?.click();
+    });
     
-    // Calendar navigation
+    // Calendar
     document.getElementById('prev-month')?.addEventListener('click', () => navigateCalendar(-1));
     document.getElementById('next-month')?.addEventListener('click', () => navigateCalendar(1));
     
     // Star ratings
     setupStarRatings();
     
-    // Modal close on overlay click
+    // Modal
     document.getElementById('modal-overlay')?.addEventListener('click', (e) => {
         if (e.target === e.currentTarget) closeModal();
     });
@@ -85,41 +96,13 @@ function setupEventListeners() {
 
 function setupStarRatings() {
     document.querySelectorAll('.star-rating').forEach(rating => {
-        const stars = rating.querySelectorAll('i');
-        stars.forEach(star => {
+        rating.querySelectorAll('i').forEach(star => {
             star.addEventListener('click', () => {
                 const value = parseInt(star.dataset.value);
-                const clo = rating.dataset.clo;
-                
-                stars.forEach((s, i) => {
-                    if (i < value) {
-                        s.classList.add('active');
-                    } else {
-                        s.classList.remove('active');
-                    }
+                rating.querySelectorAll('i').forEach((s, i) => {
+                    s.classList.toggle('active', i < value);
                 });
-                
-                rating.dataset.value = value;
-            });
-            
-            star.addEventListener('mouseenter', () => {
-                const value = parseInt(star.dataset.value);
-                stars.forEach((s, i) => {
-                    if (i < value) {
-                        s.style.color = 'var(--secondary)';
-                    }
-                });
-            });
-            
-            star.addEventListener('mouseleave', () => {
-                const currentValue = parseInt(rating.dataset.value) || 0;
-                stars.forEach((s, i) => {
-                    if (i < currentValue) {
-                        s.style.color = 'var(--secondary)';
-                    } else {
-                        s.style.color = 'var(--gray-300)';
-                    }
-                });
+                rating.dataset.rating = value;
             });
         });
     });
@@ -131,7 +114,6 @@ function setupStarRatings() {
 
 async function handleLogin(e) {
     e.preventDefault();
-    
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
     const errorDiv = document.getElementById('login-error');
@@ -143,95 +125,122 @@ async function handleLogin(e) {
         await auth.signInWithEmailAndPassword(email, password);
     } catch (error) {
         console.error('Login error:', error);
-        errorDiv.textContent = getAuthErrorMessage(error.code);
+        errorDiv.textContent = error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' 
+            ? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' 
+            : 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ';
         hideLoading();
     }
 }
 
-function handleLogout() {
-    auth.signOut();
+async function handleSetPassword(e) {
+    e.preventDefault();
+    const newPassword = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    const errorDiv = document.getElementById('set-password-error');
+    
+    errorDiv.textContent = '';
+    
+    if (newPassword !== confirmPassword) {
+        errorDiv.textContent = 'รหัสผ่านไม่ตรงกัน';
+        return;
+    }
+    if (newPassword.length < 6) {
+        errorDiv.textContent = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร';
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        await currentUser.updatePassword(newPassword);
+        const collection = currentUserRole === 'teacher' ? 'teachers' : 'students';
+        await db.collection(collection).doc(currentUser.uid).update({ needsPasswordSetup: false });
+        currentUserData.needsPasswordSetup = false;
+        
+        showToast('ตั้งรหัสผ่านสำเร็จ', 'success');
+        await loadCurrentEvent();
+        await loadAllEvents();
+        navigateToRoleDashboard();
+    } catch (error) {
+        errorDiv.textContent = 'เกิดข้อผิดพลาด: ' + error.message;
+    }
+    hideLoading();
 }
 
-function getAuthErrorMessage(code) {
-    const messages = {
-        'auth/user-not-found': 'ไม่พบบัญชีผู้ใช้นี้',
-        'auth/wrong-password': 'รหัสผ่านไม่ถูกต้อง',
-        'auth/invalid-email': 'รูปแบบอีเมลไม่ถูกต้อง',
-        'auth/too-many-requests': 'มีการลองเข้าสู่ระบบมากเกินไป กรุณารอสักครู่'
-    };
-    return messages[code] || 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+function showSetPasswordPage() {
+    document.getElementById('set-password-email').value = currentUser.email;
+    showPage('set-password-page');
+}
+
+async function handleLogout() {
+    try { await auth.signOut(); } catch (e) { console.error(e); }
 }
 
 // =====================================================
-// User Data Management
+// User Data Loading
 // =====================================================
 
 async function loadUserData() {
+    if (!currentUser) return;
+    
+    // Check admin
     try {
-        // Check if super admin
         const adminDoc = await db.collection('admins').doc(currentUser.uid).get();
         if (adminDoc.exists) {
             currentUserRole = 'admin';
             currentUserData = adminDoc.data();
             return;
         }
-        
-        // Check if teacher
+    } catch (e) {}
+    
+    // Check teacher
+    try {
         const teacherDoc = await db.collection('teachers').doc(currentUser.uid).get();
         if (teacherDoc.exists) {
             currentUserRole = 'teacher';
             currentUserData = teacherDoc.data();
             return;
         }
-        
-        // Check if student
+    } catch (e) {}
+    
+    // Check student
+    try {
         const studentDoc = await db.collection('students').doc(currentUser.uid).get();
         if (studentDoc.exists) {
             currentUserRole = 'student';
             currentUserData = studentDoc.data();
             return;
         }
-        
-        // No role found - logout
-        showToast('ไม่พบข้อมูลผู้ใช้ในระบบ', 'error');
-        await auth.signOut();
-    } catch (error) {
-        console.error('Error loading user data:', error);
-        showToast('เกิดข้อผิดพลาดในการโหลดข้อมูล', 'error');
-    }
+    } catch (e) {}
+    
+    currentUserRole = null;
+    currentUserData = null;
 }
 
 async function loadCurrentEvent() {
     try {
-        const today = new Date();
-        const eventsSnapshot = await db.collection('events')
-            .where('startDate', '<=', getDateString(today))
-            .where('endDate', '>=', getDateString(today))
-            .limit(1)
-            .get();
+        const today = getDateString(new Date());
+        const snapshot = await db.collection('events')
+            .where('startDate', '<=', today)
+            .where('endDate', '>=', today)
+            .limit(1).get();
         
-        if (!eventsSnapshot.empty) {
-            currentEvent = {
-                id: eventsSnapshot.docs[0].id,
-                ...eventsSnapshot.docs[0].data()
-            };
+        if (!snapshot.empty) {
+            currentEvent = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
         } else {
-            // Get latest event
-            const latestSnapshot = await db.collection('events')
-                .orderBy('startDate', 'desc')
-                .limit(1)
-                .get();
-            
-            if (!latestSnapshot.empty) {
-                currentEvent = {
-                    id: latestSnapshot.docs[0].id,
-                    ...latestSnapshot.docs[0].data()
-                };
+            const latest = await db.collection('events').orderBy('endDate', 'desc').limit(1).get();
+            if (!latest.empty) {
+                currentEvent = { id: latest.docs[0].id, ...latest.docs[0].data() };
             }
         }
-    } catch (error) {
-        console.error('Error loading event:', error);
-    }
+    } catch (e) { console.error(e); }
+}
+
+async function loadAllEvents() {
+    try {
+        const snapshot = await db.collection('events').orderBy('startDate', 'desc').get();
+        allEvents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (e) { console.error(e); }
 }
 
 // =====================================================
@@ -239,63 +248,57 @@ async function loadCurrentEvent() {
 // =====================================================
 
 function showPage(pageId) {
-    document.querySelectorAll('.page').forEach(page => {
-        page.classList.add('hidden');
-    });
+    document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
     document.getElementById(pageId)?.classList.remove('hidden');
 }
 
 function navigateToRoleDashboard() {
     switch (currentUserRole) {
-        case 'admin':
-            showPage('admin-page');
-            document.getElementById('admin-name').textContent = currentUserData?.name || 'Admin';
-            loadAdminDashboard();
-            break;
-        case 'teacher':
-            showPage('teacher-page');
-            document.getElementById('teacher-name').textContent = currentUserData?.name || 'อาจารย์';
-            loadTeacherDashboard();
-            break;
-        case 'student':
-            showPage('student-page');
-            document.getElementById('student-name').textContent = currentUserData?.name || 'นักศึกษา';
-            loadStudentDashboard();
-            break;
-        default:
-            showPage('login-page');
+        case 'admin': showPage('admin-page'); loadAdminDashboard(); break;
+        case 'teacher': showPage('teacher-page'); loadTeacherDashboard(); break;
+        case 'student': showPage('student-page'); loadStudentDashboard(); break;
+        default: showPage('login-page');
     }
 }
 
 function switchTab(button, tabId) {
-    // Update nav buttons
-    button.parentElement.querySelectorAll('.tab-btn').forEach(item => {
-        item.classList.remove('active');
-    });
+    button.parentElement.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     button.classList.add('active');
     
-    // Update tab content
     const page = button.closest('.page');
-    page.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.remove('active');
-        content.classList.add('hidden');
+    page.querySelectorAll('.tab-content').forEach(c => {
+        c.classList.remove('active');
+        c.classList.add('hidden');
     });
-    const targetTab = document.getElementById(tabId);
-    if (targetTab) {
-        targetTab.classList.remove('hidden');
-        targetTab.classList.add('active');
+    const target = document.getElementById(tabId);
+    if (target) {
+        target.classList.remove('hidden');
+        target.classList.add('active');
     }
     
-    // Load tab-specific data
-    if (tabId === 'student-journal') {
-        loadJournalForDate(selectedDate || getDateString(new Date()));
-    } else if (tabId === 'student-history') {
-        loadJournalHistory();
-    } else if (tabId === 'student-community') {
-        loadCommunityNotes();
-    } else if (tabId === 'student-journey') {
-        loadLearningJourney();
+    // Load data
+    if (tabId === 'student-journal') loadJournalForDate(selectedDate || getDateString(new Date()));
+    else if (tabId === 'student-history') loadJournalHistory();
+    else if (tabId === 'student-community') loadCommunityNotes();
+    else if (tabId === 'student-journey') loadLearningJourney();
+}
+
+function switchSidebarTab(button, tabId) {
+    document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
+    button.classList.add('active');
+    
+    const page = button.closest('.page');
+    page.querySelectorAll('.tab-content').forEach(c => {
+        c.classList.remove('active');
+        c.classList.add('hidden');
+    });
+    const target = document.getElementById(tabId);
+    if (target) {
+        target.classList.remove('hidden');
+        target.classList.add('active');
     }
+    
+    if (tabId === 'admin-stats') loadAdminStats();
 }
 
 // =====================================================
@@ -303,13 +306,7 @@ function switchTab(button, tabId) {
 // =====================================================
 
 async function loadAdminDashboard() {
-    await Promise.all([
-        loadStudentsTable(),
-        loadTeachersTable(),
-        loadGroups(),
-        loadEvents(),
-        loadStatistics()
-    ]);
+    await Promise.all([loadStudentsTable(), loadTeachersTable(), loadGroups(), loadEvents()]);
 }
 
 async function loadStudentsTable() {
@@ -317,41 +314,41 @@ async function loadStudentsTable() {
     if (!tbody) return;
     
     try {
-        const snapshot = await db.collection('students').get();
+        const [studentsSnap, groupsSnap, eventsSnap] = await Promise.all([
+            db.collection('students').get(),
+            db.collection('groups').get(),
+            db.collection('events').get()
+        ]);
         
-        if (snapshot.empty) {
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">ยังไม่มีนักศึกษาในระบบ</td></tr>';
+        if (studentsSnap.empty) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);">ยังไม่มีนักศึกษาในระบบ</td></tr>';
             return;
         }
         
-        const groups = {};
-        const groupsSnapshot = await db.collection('groups').get();
-        groupsSnapshot.forEach(doc => {
-            groups[doc.id] = doc.data().name;
-        });
+        const groups = {}, events = {};
+        groupsSnap.forEach(d => groups[d.id] = d.data().name);
+        eventsSnap.forEach(d => events[d.id] = d.data().name);
         
-        tbody.innerHTML = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return `
-                <tr>
-                    <td>${data.email}</td>
-                    <td>${data.name}</td>
-                    <td>${groups[data.groupId] || '-'}</td>
-                    <td><span class="badge ${data.active !== false ? 'badge-student' : 'badge-info'}">${data.active !== false ? 'ใช้งาน' : 'ปิดใช้งาน'}</span></td>
-                    <td class="actions">
-                        <button class="btn btn-sm btn-outline" onclick="editUser('student', '${doc.id}')">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteUser('student', '${doc.id}')">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </td>
-                </tr>
-            `;
+        tbody.innerHTML = studentsSnap.docs.map(doc => {
+            const d = doc.data();
+            const status = d.needsPasswordSetup 
+                ? '<span class="badge badge-warning">รอตั้งรหัส</span>'
+                : '<span class="badge badge-success">ใช้งาน</span>';
+            return `<tr>
+                <td>${d.email}</td>
+                <td>${d.name || '-'}</td>
+                <td>${groups[d.groupId] || '<span style="color:var(--text-muted);">-</span>'}</td>
+                <td>${events[d.eventId] || '<span style="color:var(--text-muted);">-</span>'}</td>
+                <td>${status}</td>
+                <td><div class="flex gap-1">
+                    <button class="btn btn-secondary btn-sm" onclick="editUser('student','${doc.id}')"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteUser('student','${doc.id}')"><i class="fas fa-trash"></i></button>
+                </div></td>
+            </tr>`;
         }).join('');
-    } catch (error) {
-        console.error('Error loading students:', error);
-        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">เกิดข้อผิดพลาด</td></tr>';
+    } catch (e) {
+        console.error(e);
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--error);">เกิดข้อผิดพลาด</td></tr>';
     }
 }
 
@@ -360,45 +357,40 @@ async function loadTeachersTable() {
     if (!tbody) return;
     
     try {
-        const snapshot = await db.collection('teachers').get();
+        const [teachersSnap, groupsSnap] = await Promise.all([
+            db.collection('teachers').get(),
+            db.collection('groups').get()
+        ]);
         
-        if (snapshot.empty) {
-            tbody.innerHTML = '<tr><td colspan="4" class="empty-state">ยังไม่มีอาจารย์ในระบบ</td></tr>';
+        if (teachersSnap.empty) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--text-muted);">ยังไม่มีอาจารย์ในระบบ</td></tr>';
             return;
         }
         
         const groups = {};
-        const groupsSnapshot = await db.collection('groups').get();
-        groupsSnapshot.forEach(doc => {
-            const data = doc.data();
+        groupsSnap.forEach(d => {
+            const data = d.data();
             if (data.teacherId) {
                 if (!groups[data.teacherId]) groups[data.teacherId] = [];
                 groups[data.teacherId].push(data.name);
             }
         });
         
-        tbody.innerHTML = snapshot.docs.map(doc => {
-            const data = doc.data();
-            const teacherGroups = groups[doc.id] || [];
-            return `
-                <tr>
-                    <td>${data.email}</td>
-                    <td>${data.name}</td>
-                    <td>${teacherGroups.join(', ') || '-'}</td>
-                    <td class="actions">
-                        <button class="btn btn-sm btn-outline" onclick="editUser('teacher', '${doc.id}')">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteUser('teacher', '${doc.id}')">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </td>
-                </tr>
-            `;
+        tbody.innerHTML = teachersSnap.docs.map(doc => {
+            const d = doc.data();
+            const tGroups = groups[doc.id] || [];
+            const status = d.needsPasswordSetup ? ' <span class="badge badge-warning">รอตั้งรหัส</span>' : '';
+            return `<tr>
+                <td>${d.email}${status}</td>
+                <td>${d.name || '-'}</td>
+                <td>${tGroups.join(', ') || '<span style="color:var(--text-muted);">-</span>'}</td>
+                <td><div class="flex gap-1">
+                    <button class="btn btn-secondary btn-sm" onclick="editUser('teacher','${doc.id}')"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteUser('teacher','${doc.id}')"><i class="fas fa-trash"></i></button>
+                </div></td>
+            </tr>`;
         }).join('');
-    } catch (error) {
-        console.error('Error loading teachers:', error);
-    }
+    } catch (e) { console.error(e); }
 }
 
 async function loadGroups() {
@@ -406,58 +398,35 @@ async function loadGroups() {
     if (!container) return;
     
     try {
-        const snapshot = await db.collection('groups').get();
+        const [groupsSnap, teachersSnap] = await Promise.all([
+            db.collection('groups').get(),
+            db.collection('teachers').get()
+        ]);
         
-        if (snapshot.empty) {
-            container.innerHTML = '<div class="empty-state"><i class="fas fa-layer-group"></i><h3>ยังไม่มีกลุ่ม</h3><p>คลิก "สร้างกลุ่ม" เพื่อเริ่มต้น</p></div>';
+        if (groupsSnap.empty) {
+            container.innerHTML = '<div class="empty-state"><div style="font-size:3rem;margin-bottom:1rem;">📁</div><h3>ยังไม่มีกลุ่ม</h3></div>';
             return;
         }
         
-        // Get teachers
         const teachers = {};
-        const teachersSnapshot = await db.collection('teachers').get();
-        teachersSnapshot.forEach(doc => {
-            teachers[doc.id] = doc.data().name;
-        });
+        teachersSnap.forEach(d => teachers[d.id] = d.data().name || d.data().email);
         
-        // Get student counts
-        const studentCounts = {};
-        const studentsSnapshot = await db.collection('students').get();
-        studentsSnapshot.forEach(doc => {
-            const groupId = doc.data().groupId;
-            if (groupId) {
-                studentCounts[groupId] = (studentCounts[groupId] || 0) + 1;
-            }
-        });
-        
-        container.innerHTML = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return `
-                <div class="group-card">
-                    <div class="group-card-header">
-                        <div>
-                            <h3>${data.name}</h3>
-                            <div class="group-teacher">
-                                <i class="fas fa-chalkboard-teacher"></i>
-                                ${teachers[data.teacherId] || 'ยังไม่กำหนด'}
-                            </div>
-                        </div>
-                        <button class="btn btn-sm btn-ghost" onclick="deleteGroup('${doc.id}')">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                    <div class="group-stats">
-                        <div class="group-stat">
-                            <span class="value">${studentCounts[doc.id] || 0}</span>
-                            <span class="label">นักศึกษา</span>
-                        </div>
+        container.innerHTML = groupsSnap.docs.map(doc => {
+            const d = doc.data();
+            return `<div class="card group-card">
+                <div class="card-body">
+                    <h3 style="font-family:var(--font-display);margin-bottom:0.5rem;">${d.name}</h3>
+                    <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:1rem;">
+                        <i class="fas fa-chalkboard-teacher"></i> ${teachers[d.teacherId] || 'ยังไม่ระบุ'}
+                    </p>
+                    <div class="flex gap-1">
+                        <button class="btn btn-secondary btn-sm" onclick="editGroup('${doc.id}')"><i class="fas fa-edit"></i> แก้ไข</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteGroup('${doc.id}')"><i class="fas fa-trash"></i></button>
                     </div>
                 </div>
-            `;
+            </div>`;
         }).join('');
-    } catch (error) {
-        console.error('Error loading groups:', error);
-    }
+    } catch (e) { console.error(e); }
 }
 
 async function loadEvents() {
@@ -468,428 +437,414 @@ async function loadEvents() {
         const snapshot = await db.collection('events').orderBy('startDate', 'desc').get();
         
         if (snapshot.empty) {
-            container.innerHTML = '<div class="empty-state"><i class="fas fa-calendar-alt"></i><h3>ยังไม่มีอีเวนท์</h3><p>คลิก "สร้างอีเวนท์" เพื่อเริ่มต้น</p></div>';
-            return;
-        }
-        
-        container.innerHTML = snapshot.docs.map(doc => {
-            const data = doc.data();
-            const startDate = new Date(data.startDate);
-            const endDate = new Date(data.endDate);
-            const days = getDaysBetween(data.startDate, data.endDate).length;
-            
-            return `
-                <div class="event-card">
-                    <div class="event-date-box">
-                        <div class="month">${startDate.toLocaleDateString('th-TH', { month: 'short' })}</div>
-                        <div class="day">${startDate.getDate()}</div>
-                    </div>
-                    <div class="event-info">
-                        <h3>${data.name}</h3>
-                        <p>${data.description || ''}</p>
-                        <div class="event-duration">
-                            <i class="fas fa-clock"></i>
-                            ${formatDateShort(data.startDate)} - ${formatDateShort(data.endDate)} (${days} วัน)
-                        </div>
-                    </div>
-                    <button class="btn btn-sm btn-danger" onclick="deleteEvent('${doc.id}')">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            `;
-        }).join('');
-    } catch (error) {
-        console.error('Error loading events:', error);
-    }
-}
-
-async function loadStatistics() {
-    try {
-        const studentsSnapshot = await db.collection('students').get();
-        const totalStudents = studentsSnapshot.size;
-        
-        document.getElementById('stat-total-students').textContent = totalStudents;
-        
-        if (!currentEvent) {
-            document.getElementById('stat-completed-today').textContent = '-';
-            document.getElementById('stat-pending-today').textContent = '-';
-            document.getElementById('stat-completion-rate').textContent = '-';
+            container.innerHTML = '<div class="empty-state"><div style="font-size:3rem;margin-bottom:1rem;">📅</div><h3>ยังไม่มีอีเวนท์</h3></div>';
             return;
         }
         
         const today = getDateString(new Date());
-        const eventDays = getDaysBetween(currentEvent.startDate, currentEvent.endDate);
-        
-        // Count journals for today
-        const journalsSnapshot = await db.collection('journals')
-            .where('date', '==', today)
-            .get();
-        
-        const completedToday = journalsSnapshot.size;
-        const pendingToday = totalStudents - completedToday;
-        const rate = totalStudents > 0 ? Math.round((completedToday / totalStudents) * 100) : 0;
-        
-        document.getElementById('stat-completed-today').textContent = completedToday;
-        document.getElementById('stat-pending-today').textContent = pendingToday;
-        document.getElementById('stat-completion-rate').textContent = rate + '%';
-        
-        // Load daily stats
-        await loadDailyStats(eventDays, totalStudents);
-        
-        // Load group stats
-        await loadGroupStats();
-        
-    } catch (error) {
-        console.error('Error loading statistics:', error);
-    }
-}
-
-async function loadDailyStats(eventDays, totalStudents) {
-    const tbody = document.getElementById('daily-stats-table');
-    if (!tbody) return;
-    
-    const rows = [];
-    
-    for (const day of eventDays) {
-        const journalsSnapshot = await db.collection('journals')
-            .where('date', '==', day)
-            .get();
-        
-        const completed = journalsSnapshot.size;
-        const pending = totalStudents - completed;
-        const rate = totalStudents > 0 ? Math.round((completed / totalStudents) * 100) : 0;
-        
-        rows.push(`
-            <tr>
-                <td>${formatDateShort(day)}</td>
-                <td>${completed}</td>
-                <td>${pending}</td>
-                <td>${rate}%</td>
-            </tr>
-        `);
-    }
-    
-    tbody.innerHTML = rows.join('');
-}
-
-async function loadGroupStats() {
-    const container = document.getElementById('group-stats-container');
-    if (!container) return;
-    
-    try {
-        const groupsSnapshot = await db.collection('groups').get();
-        
-        if (groupsSnapshot.empty) {
-            container.innerHTML = '<p class="empty-state">ยังไม่มีกลุ่ม</p>';
-            return;
-        }
-        
-        const stats = [];
-        
-        for (const groupDoc of groupsSnapshot.docs) {
-            const groupData = groupDoc.data();
+        container.innerHTML = snapshot.docs.map(doc => {
+            const d = doc.data();
+            let statusText = 'กำลังจะมาถึง', statusClass = 'badge-info';
+            if (today >= d.startDate && today <= d.endDate) { statusText = 'กำลังดำเนินการ'; statusClass = 'badge-success'; }
+            else if (today > d.endDate) { statusText = 'สิ้นสุดแล้ว'; statusClass = 'badge-warning'; }
             
-            const studentsSnapshot = await db.collection('students')
-                .where('groupId', '==', groupDoc.id)
-                .get();
-            
-            const totalStudents = studentsSnapshot.size;
-            
-            if (currentEvent && totalStudents > 0) {
-                const eventDays = getDaysBetween(currentEvent.startDate, currentEvent.endDate);
-                const totalExpected = totalStudents * eventDays.length;
-                
-                let totalJournals = 0;
-                for (const studentDoc of studentsSnapshot.docs) {
-                    const journalsSnapshot = await db.collection('journals')
-                        .where('studentId', '==', studentDoc.id)
-                        .get();
-                    totalJournals += journalsSnapshot.size;
-                }
-                
-                const rate = totalExpected > 0 ? Math.round((totalJournals / totalExpected) * 100) : 0;
-                
-                stats.push({
-                    name: groupData.name,
-                    students: totalStudents,
-                    rate: rate
-                });
-            } else {
-                stats.push({
-                    name: groupData.name,
-                    students: totalStudents,
-                    rate: 0
-                });
-            }
-        }
-        
-        container.innerHTML = `
-            <div class="stats-grid">
-                ${stats.map(s => `
-                    <div class="stat-card">
-                        <div class="stat-icon purple">
-                            <i class="fas fa-users"></i>
+            return `<div class="card mb-2">
+                <div class="card-body">
+                    <div class="flex justify-between items-start flex-wrap gap-2">
+                        <div>
+                            <h3 style="font-family:var(--font-display);margin-bottom:0.25rem;">${d.name}</h3>
+                            <p style="color:var(--text-muted);font-size:0.875rem;"><i class="fas fa-calendar"></i> ${formatDateThai(d.startDate)} - ${formatDateThai(d.endDate)}</p>
+                            ${d.description ? `<p style="margin-top:0.5rem;color:var(--text-secondary);">${d.description}</p>` : ''}
                         </div>
-                        <div class="stat-info">
-                            <h3>${s.name}</h3>
-                            <p>${s.students} คน | ${s.rate}% ครบถ้วน</p>
+                        <div class="flex items-center gap-2">
+                            <span class="badge ${statusClass}">${statusText}</span>
+                            <button class="btn btn-secondary btn-sm" onclick="editEvent('${doc.id}')"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteEvent('${doc.id}')"><i class="fas fa-trash"></i></button>
                         </div>
                     </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        console.error('Error loading group stats:', error);
-    }
+                </div>
+            </div>`;
+        }).join('');
+    } catch (e) { console.error(e); }
+}
+
+async function loadAdminStats() {
+    try {
+        const studentsSnap = await db.collection('students').get();
+        document.getElementById('stat-total-students').textContent = studentsSnap.size;
+    } catch (e) { console.error(e); }
 }
 
 // =====================================================
-// Admin Modal Functions
+// Edit Functions (Admin)
+// =====================================================
+
+async function editUser(type, userId) {
+    try {
+        const collection = type === 'teacher' ? 'teachers' : 'students';
+        const doc = await db.collection(collection).doc(userId).get();
+        if (!doc.exists) { showToast('ไม่พบข้อมูล', 'error'); return; }
+        
+        const data = doc.data();
+        const [groupsSnap, eventsSnap] = await Promise.all([
+            db.collection('groups').get(),
+            db.collection('events').get()
+        ]);
+        
+        const groupOpts = groupsSnap.docs.map(g => 
+            `<option value="${g.id}" ${data.groupId === g.id ? 'selected' : ''}>${g.data().name}</option>`
+        ).join('');
+        
+        const eventOpts = eventsSnap.docs.map(e => 
+            `<option value="${e.id}" ${data.eventId === e.id ? 'selected' : ''}>${e.data().name}</option>`
+        ).join('');
+        
+        document.getElementById('modal-container').innerHTML = `
+            <div class="modal-header">
+                <h3>แก้ไขข้อมูล${type === 'teacher' ? 'อาจารย์' : 'นักศึกษา'}</h3>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-user-form" class="flex flex-col gap-2">
+                    <input type="hidden" id="edit-user-id" value="${userId}">
+                    <input type="hidden" id="edit-user-type" value="${type}">
+                    <div class="form-group">
+                        <label>อีเมล</label>
+                        <input type="email" value="${data.email || ''}" disabled style="background:var(--bg-secondary);">
+                    </div>
+                    <div class="form-group">
+                        <label>ชื่อ-นามสกุล</label>
+                        <input type="text" id="edit-user-name" value="${data.name || ''}" required>
+                    </div>
+                    ${type === 'student' ? `
+                    <div class="form-group">
+                        <label>กลุ่ม</label>
+                        <select id="edit-user-group" class="form-select">
+                            <option value="">-- ไม่ระบุ --</option>
+                            ${groupOpts}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>อีเวนท์</label>
+                        <select id="edit-user-event" class="form-select">
+                            <option value="">-- ไม่ระบุ --</option>
+                            ${eventOpts}
+                        </select>
+                    </div>
+                    ` : ''}
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+                <button class="btn btn-primary" onclick="saveEditUser()">บันทึก</button>
+            </div>
+        `;
+        document.getElementById('modal-overlay').classList.add('active');
+    } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาด', 'error'); }
+}
+
+async function saveEditUser() {
+    const userId = document.getElementById('edit-user-id').value;
+    const type = document.getElementById('edit-user-type').value;
+    const name = document.getElementById('edit-user-name').value.trim();
+    
+    if (!name) { showToast('กรุณากรอกชื่อ', 'error'); return; }
+    
+    try {
+        const collection = type === 'teacher' ? 'teachers' : 'students';
+        const updateData = { name };
+        
+        if (type === 'student') {
+            updateData.groupId = document.getElementById('edit-user-group')?.value || null;
+            updateData.eventId = document.getElementById('edit-user-event')?.value || null;
+        }
+        
+        await db.collection(collection).doc(userId).update(updateData);
+        showToast('บันทึกสำเร็จ', 'success');
+        closeModal();
+        type === 'teacher' ? loadTeachersTable() : loadStudentsTable();
+    } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาด', 'error'); }
+}
+
+async function deleteUser(type, userId) {
+    if (!confirm('ต้องการลบผู้ใช้นี้?')) return;
+    try {
+        await db.collection(type === 'teacher' ? 'teachers' : 'students').doc(userId).delete();
+        showToast('ลบสำเร็จ', 'success');
+        type === 'teacher' ? loadTeachersTable() : loadStudentsTable();
+    } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาด', 'error'); }
+}
+
+async function editGroup(groupId) {
+    try {
+        const doc = await db.collection('groups').doc(groupId).get();
+        if (!doc.exists) { showToast('ไม่พบข้อมูล', 'error'); return; }
+        
+        const data = doc.data();
+        const teachersSnap = await db.collection('teachers').get();
+        const teacherOpts = teachersSnap.docs.map(t => 
+            `<option value="${t.id}" ${data.teacherId === t.id ? 'selected' : ''}>${t.data().name || t.data().email}</option>`
+        ).join('');
+        
+        document.getElementById('modal-container').innerHTML = `
+            <div class="modal-header">
+                <h3>แก้ไขกลุ่ม</h3>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form class="flex flex-col gap-2">
+                    <input type="hidden" id="edit-group-id" value="${groupId}">
+                    <div class="form-group">
+                        <label>ชื่อกลุ่ม</label>
+                        <input type="text" id="edit-group-name" value="${data.name || ''}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>อาจารย์ที่ดูแล</label>
+                        <select id="edit-group-teacher" class="form-select">
+                            <option value="">-- เลือกอาจารย์ --</option>
+                            ${teacherOpts}
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+                <button class="btn btn-primary" onclick="saveEditGroup()">บันทึก</button>
+            </div>
+        `;
+        document.getElementById('modal-overlay').classList.add('active');
+    } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาด', 'error'); }
+}
+
+async function saveEditGroup() {
+    const groupId = document.getElementById('edit-group-id').value;
+    const name = document.getElementById('edit-group-name').value.trim();
+    const teacherId = document.getElementById('edit-group-teacher').value;
+    
+    if (!name) { showToast('กรุณากรอกชื่อกลุ่ม', 'error'); return; }
+    
+    try {
+        await db.collection('groups').doc(groupId).update({ name, teacherId: teacherId || null });
+        showToast('บันทึกสำเร็จ', 'success');
+        closeModal();
+        loadGroups();
+    } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาด', 'error'); }
+}
+
+async function deleteGroup(groupId) {
+    if (!confirm('ต้องการลบกลุ่มนี้?')) return;
+    try {
+        await db.collection('groups').doc(groupId).delete();
+        showToast('ลบสำเร็จ', 'success');
+        loadGroups();
+    } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาด', 'error'); }
+}
+
+async function editEvent(eventId) {
+    try {
+        const doc = await db.collection('events').doc(eventId).get();
+        if (!doc.exists) { showToast('ไม่พบข้อมูล', 'error'); return; }
+        
+        const data = doc.data();
+        document.getElementById('modal-container').innerHTML = `
+            <div class="modal-header">
+                <h3>แก้ไขอีเวนท์</h3>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form class="flex flex-col gap-2">
+                    <input type="hidden" id="edit-event-id" value="${eventId}">
+                    <div class="form-group">
+                        <label>ชื่ออีเวนท์</label>
+                        <input type="text" id="edit-event-name" value="${data.name || ''}" required>
+                    </div>
+                    <div class="flex gap-2">
+                        <div class="form-group" style="flex:1;">
+                            <label>วันเริ่มต้น</label>
+                            <input type="date" id="edit-event-start" value="${data.startDate || ''}" required>
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label>วันสิ้นสุด</label>
+                            <input type="date" id="edit-event-end" value="${data.endDate || ''}" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>รายละเอียด</label>
+                        <textarea id="edit-event-desc" rows="3">${data.description || ''}</textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+                <button class="btn btn-primary" onclick="saveEditEvent()">บันทึก</button>
+            </div>
+        `;
+        document.getElementById('modal-overlay').classList.add('active');
+    } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาด', 'error'); }
+}
+
+async function saveEditEvent() {
+    const eventId = document.getElementById('edit-event-id').value;
+    const name = document.getElementById('edit-event-name').value.trim();
+    const startDate = document.getElementById('edit-event-start').value;
+    const endDate = document.getElementById('edit-event-end').value;
+    const description = document.getElementById('edit-event-desc').value.trim();
+    
+    if (!name || !startDate || !endDate) { showToast('กรุณากรอกข้อมูลให้ครบ', 'error'); return; }
+    
+    try {
+        await db.collection('events').doc(eventId).update({ name, startDate, endDate, description });
+        showToast('บันทึกสำเร็จ', 'success');
+        closeModal();
+        loadEvents();
+        await loadAllEvents();
+    } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาด', 'error'); }
+}
+
+async function deleteEvent(eventId) {
+    if (!confirm('ต้องการลบอีเวนท์นี้?')) return;
+    try {
+        await db.collection('events').doc(eventId).delete();
+        showToast('ลบสำเร็จ', 'success');
+        loadEvents();
+        await loadAllEvents();
+    } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาด', 'error'); }
+}
+
+// =====================================================
+// Add Modals
 // =====================================================
 
 function showAddUserModal() {
     const template = document.getElementById('add-user-modal-template');
-    const modal = template.content.cloneNode(true);
-    
     document.getElementById('modal-container').innerHTML = '';
-    document.getElementById('modal-container').appendChild(modal);
+    document.getElementById('modal-container').appendChild(template.content.cloneNode(true));
     document.getElementById('modal-overlay').classList.add('active');
     
-    // Load groups for dropdown
     loadGroupsDropdown('user-group');
-    
-    // Handle user type change
-    document.getElementById('user-type').addEventListener('change', (e) => {
-        const groupField = document.getElementById('student-group-field');
-        groupField.style.display = e.target.value === 'student' ? 'block' : 'none';
-    });
-    
-    // Handle form submit
+    loadEventsDropdown('user-event');
     document.getElementById('add-user-form').addEventListener('submit', handleAddUser);
 }
 
 async function loadGroupsDropdown(selectId) {
     const select = document.getElementById(selectId);
     if (!select) return;
-    
     try {
-        const snapshot = await db.collection('groups').get();
-        
-        snapshot.forEach(doc => {
-            const option = document.createElement('option');
-            option.value = doc.id;
-            option.textContent = doc.data().name;
-            select.appendChild(option);
+        const snap = await db.collection('groups').get();
+        snap.forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d.id;
+            opt.textContent = d.data().name;
+            select.appendChild(opt);
         });
-    } catch (error) {
-        console.error('Error loading groups dropdown:', error);
-    }
+    } catch (e) { console.error(e); }
+}
+
+async function loadEventsDropdown(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    try {
+        const snap = await db.collection('events').orderBy('startDate', 'desc').get();
+        snap.forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d.id;
+            opt.textContent = d.data().name;
+            select.appendChild(opt);
+        });
+    } catch (e) { console.error(e); }
 }
 
 async function handleAddUser(e) {
     e.preventDefault();
-    
     const type = document.getElementById('user-type').value;
     const email = document.getElementById('user-email').value;
     const name = document.getElementById('user-name').value;
     const password = document.getElementById('user-password').value;
     const groupId = document.getElementById('user-group')?.value;
+    const eventId = document.getElementById('user-event')?.value;
     
     showLoading();
-    
     try {
-        // Create user in Firebase Auth using admin SDK simulation
-        // Note: In production, use Cloud Functions for this
-        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-        const userId = userCredential.user.uid;
-        
-        // Add to appropriate collection
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
         const collection = type === 'teacher' ? 'teachers' : 'students';
-        const userData = {
-            email,
-            name,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        
-        if (type === 'student' && groupId) {
-            userData.groupId = groupId;
+        const userData = { email, name, createdAt: firebase.firestore.FieldValue.serverTimestamp(), needsPasswordSetup: false };
+        if (type === 'student') {
+            if (groupId) userData.groupId = groupId;
+            if (eventId) userData.eventId = eventId;
         }
-        
-        await db.collection(collection).doc(userId).set(userData);
-        
-        // Sign back in as admin
-        // Note: This is a workaround. In production, use Cloud Functions
-        
+        await db.collection(collection).doc(cred.user.uid).set(userData);
+        await auth.signOut();
         closeModal();
-        showToast('เพิ่มผู้ใช้สำเร็จ', 'success');
-        
-        if (type === 'teacher') {
-            loadTeachersTable();
-        } else {
-            loadStudentsTable();
-        }
-        
-    } catch (error) {
-        console.error('Error adding user:', error);
-        showToast('เกิดข้อผิดพลาด: ' + error.message, 'error');
-    }
-    
+        showToast('เพิ่มผู้ใช้สำเร็จ - กรุณา login ใหม่', 'success');
+        showPage('login-page');
+    } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาด: ' + e.message, 'error'); }
     hideLoading();
 }
 
 function showAddGroupModal() {
     const template = document.getElementById('add-group-modal-template');
-    const modal = template.content.cloneNode(true);
-    
     document.getElementById('modal-container').innerHTML = '';
-    document.getElementById('modal-container').appendChild(modal);
+    document.getElementById('modal-container').appendChild(template.content.cloneNode(true));
     document.getElementById('modal-overlay').classList.add('active');
     
-    // Load teachers for dropdown
     loadTeachersDropdown('group-teacher');
-    
-    // Handle form submit
     document.getElementById('add-group-form').addEventListener('submit', handleAddGroup);
 }
 
 async function loadTeachersDropdown(selectId) {
     const select = document.getElementById(selectId);
     if (!select) return;
-    
     try {
-        const snapshot = await db.collection('teachers').get();
-        
-        snapshot.forEach(doc => {
-            const option = document.createElement('option');
-            option.value = doc.id;
-            option.textContent = doc.data().name;
-            select.appendChild(option);
+        const snap = await db.collection('teachers').get();
+        snap.forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d.id;
+            opt.textContent = d.data().name || d.data().email;
+            select.appendChild(opt);
         });
-    } catch (error) {
-        console.error('Error loading teachers dropdown:', error);
-    }
+    } catch (e) { console.error(e); }
 }
 
 async function handleAddGroup(e) {
     e.preventDefault();
-    
     const name = document.getElementById('group-name').value;
     const teacherId = document.getElementById('group-teacher').value;
     
     showLoading();
-    
     try {
-        await db.collection('groups').add({
-            name,
-            teacherId: teacherId || null,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        
+        await db.collection('groups').add({ name, teacherId: teacherId || null, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
         closeModal();
         showToast('สร้างกลุ่มสำเร็จ', 'success');
         loadGroups();
-        
-    } catch (error) {
-        console.error('Error adding group:', error);
-        showToast('เกิดข้อผิดพลาด', 'error');
-    }
-    
+    } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาด', 'error'); }
     hideLoading();
 }
 
 function showAddEventModal() {
     const template = document.getElementById('add-event-modal-template');
-    const modal = template.content.cloneNode(true);
-    
     document.getElementById('modal-container').innerHTML = '';
-    document.getElementById('modal-container').appendChild(modal);
+    document.getElementById('modal-container').appendChild(template.content.cloneNode(true));
     document.getElementById('modal-overlay').classList.add('active');
     
-    // Handle form submit
     document.getElementById('add-event-form').addEventListener('submit', handleAddEvent);
 }
 
 async function handleAddEvent(e) {
     e.preventDefault();
-    
     const name = document.getElementById('event-name').value;
     const startDate = document.getElementById('event-start').value;
     const endDate = document.getElementById('event-end').value;
     const description = document.getElementById('event-description').value;
     
-    if (new Date(startDate) > new Date(endDate)) {
-        showToast('วันเริ่มต้นต้องก่อนวันสิ้นสุด', 'error');
-        return;
-    }
-    
     showLoading();
-    
     try {
-        await db.collection('events').add({
-            name,
-            startDate,
-            endDate,
-            description,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        
+        await db.collection('events').add({ name, startDate, endDate, description, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
         closeModal();
         showToast('สร้างอีเวนท์สำเร็จ', 'success');
         loadEvents();
-        await loadCurrentEvent();
-        
-    } catch (error) {
-        console.error('Error adding event:', error);
-        showToast('เกิดข้อผิดพลาด', 'error');
-    }
-    
+        await loadAllEvents();
+    } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาด', 'error'); }
     hideLoading();
-}
-
-async function deleteGroup(groupId) {
-    if (!confirm('ต้องการลบกลุ่มนี้หรือไม่?')) return;
-    
-    try {
-        await db.collection('groups').doc(groupId).delete();
-        showToast('ลบกลุ่มสำเร็จ', 'success');
-        loadGroups();
-    } catch (error) {
-        console.error('Error deleting group:', error);
-        showToast('เกิดข้อผิดพลาด', 'error');
-    }
-}
-
-async function deleteEvent(eventId) {
-    if (!confirm('ต้องการลบอีเวนท์นี้หรือไม่?')) return;
-    
-    try {
-        await db.collection('events').doc(eventId).delete();
-        showToast('ลบอีเวนท์สำเร็จ', 'success');
-        loadEvents();
-    } catch (error) {
-        console.error('Error deleting event:', error);
-        showToast('เกิดข้อผิดพลาด', 'error');
-    }
-}
-
-async function deleteUser(type, userId) {
-    if (!confirm('ต้องการลบผู้ใช้นี้หรือไม่?')) return;
-    
-    try {
-        const collection = type === 'teacher' ? 'teachers' : 'students';
-        await db.collection(collection).doc(userId).delete();
-        
-        showToast('ลบผู้ใช้สำเร็จ', 'success');
-        
-        if (type === 'teacher') {
-            loadTeachersTable();
-        } else {
-            loadStudentsTable();
-        }
-    } catch (error) {
-        console.error('Error deleting user:', error);
-        showToast('เกิดข้อผิดพลาด', 'error');
-    }
 }
 
 function closeModal() {
@@ -898,375 +853,305 @@ function closeModal() {
 }
 
 // =====================================================
+// CSV Import/Export
+// =====================================================
+
+function downloadCSVTemplate(type) {
+    let csv = '', filename = '';
+    if (type === 'users') {
+        csv = 'email,name,role,group,event\n';
+        csv += 'student1@example.com,ชื่อ นามสกุล,student,กลุ่ม A,ค่าย EL ครั้งที่ 1\n';
+        csv += 'teacher1@example.com,อาจารย์ ชื่อ,teacher,,\n';
+        filename = 'users_template.csv';
+    } else if (type === 'events') {
+        csv = 'name,startDate,endDate,description\n';
+        csv += 'ค่าย EL ครั้งที่ 1,2025-02-01,2025-02-07,รายละเอียด\n';
+        filename = 'events_template.csv';
+    }
+    
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+}
+
+function showImportUsersModal() {
+    document.getElementById('modal-container').innerHTML = `
+        <div class="modal-header">
+            <h3>นำเข้าผู้ใช้จาก CSV</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>เลือกไฟล์ CSV</label>
+                <input type="file" id="import-users-file" accept=".csv" class="form-control" style="padding:0.5rem;">
+            </div>
+            <div style="margin-top:1rem;padding:1rem;background:var(--bg-secondary);border-radius:var(--radius-md);font-size:0.875rem;">
+                <p><strong>รูปแบบ CSV:</strong> email, name, role (student/teacher), group, event</p>
+                <p style="margin-top:0.5rem;color:var(--text-muted);">* ผู้ใช้ใหม่จะต้องตั้งรหัสผ่านเมื่อ login ครั้งแรก</p>
+            </div>
+            <div id="import-preview" style="margin-top:1rem;max-height:200px;overflow:auto;"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+            <button class="btn btn-primary" onclick="processUsersImport()">นำเข้า</button>
+        </div>
+    `;
+    document.getElementById('modal-overlay').classList.add('active');
+    document.getElementById('import-users-file').addEventListener('change', previewCSV);
+}
+
+function previewCSV(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        const lines = ev.target.result.split('\n');
+        const preview = document.getElementById('import-preview');
+        let html = '<table class="data-table" style="font-size:0.75rem;"><thead><tr>';
+        lines[0].split(',').forEach(h => html += `<th>${h.trim()}</th>`);
+        html += '</tr></thead><tbody>';
+        for (let i = 1; i < Math.min(lines.length, 6); i++) {
+            if (lines[i].trim()) {
+                html += '<tr>';
+                lines[i].split(',').forEach(c => html += `<td>${c.trim()}</td>`);
+                html += '</tr>';
+            }
+        }
+        html += '</tbody></table>';
+        if (lines.length > 6) html += `<p style="color:var(--text-muted);font-size:0.75rem;margin-top:0.5rem;">... และอีก ${lines.length - 6} รายการ</p>`;
+        preview.innerHTML = html;
+    };
+    reader.readAsText(file);
+}
+
+async function processUsersImport() {
+    const file = document.getElementById('import-users-file').files[0];
+    if (!file) { showToast('กรุณาเลือกไฟล์', 'error'); return; }
+    
+    showLoading();
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+        const lines = ev.target.result.split('\n');
+        
+        // Get groups and events maps
+        const [groupsSnap, eventsSnap] = await Promise.all([
+            db.collection('groups').get(),
+            db.collection('events').get()
+        ]);
+        const groups = {}, events = {};
+        groupsSnap.forEach(d => groups[d.data().name] = d.id);
+        eventsSnap.forEach(d => events[d.data().name] = d.id);
+        
+        let success = 0, fail = 0;
+        const tempPw = 'temp' + Math.random().toString(36).substr(2, 8);
+        
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            const [email, name, role, groupName, eventName] = line.split(',').map(c => c.trim());
+            if (!email || !role) continue;
+            
+            try {
+                const cred = await auth.createUserWithEmailAndPassword(email, tempPw);
+                const collection = role === 'teacher' ? 'teachers' : 'students';
+                const userData = { email, name: name || '', createdAt: firebase.firestore.FieldValue.serverTimestamp(), needsPasswordSetup: true };
+                
+                if (role === 'student') {
+                    if (groupName && groups[groupName]) userData.groupId = groups[groupName];
+                    if (eventName && events[eventName]) userData.eventId = events[eventName];
+                }
+                
+                await db.collection(collection).doc(cred.user.uid).set(userData);
+                await auth.signOut();
+                success++;
+            } catch (e) { console.error('Import error:', email, e); fail++; }
+        }
+        
+        hideLoading();
+        closeModal();
+        showToast(`นำเข้าสำเร็จ ${success} รายการ, ล้มเหลว ${fail} รายการ`, success > 0 ? 'success' : 'error');
+        showPage('login-page');
+    };
+    reader.readAsText(file);
+}
+
+function showImportEventsModal() {
+    document.getElementById('modal-container').innerHTML = `
+        <div class="modal-header">
+            <h3>นำเข้าอีเวนท์จาก CSV</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>เลือกไฟล์ CSV</label>
+                <input type="file" id="import-events-file" accept=".csv" class="form-control" style="padding:0.5rem;">
+            </div>
+            <div style="margin-top:1rem;padding:1rem;background:var(--bg-secondary);border-radius:var(--radius-md);font-size:0.875rem;">
+                <p><strong>รูปแบบ CSV:</strong> name, startDate (YYYY-MM-DD), endDate (YYYY-MM-DD), description</p>
+            </div>
+            <div id="import-events-preview" style="margin-top:1rem;max-height:200px;overflow:auto;"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+            <button class="btn btn-primary" onclick="processEventsImport()">นำเข้า</button>
+        </div>
+    `;
+    document.getElementById('modal-overlay').classList.add('active');
+    document.getElementById('import-events-file').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const lines = ev.target.result.split('\n');
+            const preview = document.getElementById('import-events-preview');
+            let html = '<table class="data-table" style="font-size:0.75rem;"><thead><tr>';
+            lines[0].split(',').forEach(h => html += `<th>${h.trim()}</th>`);
+            html += '</tr></thead><tbody>';
+            for (let i = 1; i < Math.min(lines.length, 6); i++) {
+                if (lines[i].trim()) {
+                    html += '<tr>';
+                    lines[i].split(',').forEach(c => html += `<td>${c.trim()}</td>`);
+                    html += '</tr>';
+                }
+            }
+            html += '</tbody></table>';
+            preview.innerHTML = html;
+        };
+        reader.readAsText(file);
+    });
+}
+
+async function processEventsImport() {
+    const file = document.getElementById('import-events-file').files[0];
+    if (!file) { showToast('กรุณาเลือกไฟล์', 'error'); return; }
+    
+    showLoading();
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+        const lines = ev.target.result.split('\n');
+        let success = 0, fail = 0;
+        
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            const [name, startDate, endDate, description] = line.split(',').map(c => c.trim());
+            if (!name || !startDate || !endDate) continue;
+            
+            try {
+                await db.collection('events').add({ name, startDate, endDate, description: description || '', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                success++;
+            } catch (e) { console.error(e); fail++; }
+        }
+        
+        hideLoading();
+        closeModal();
+        showToast(`นำเข้าสำเร็จ ${success} รายการ, ล้มเหลว ${fail} รายการ`, success > 0 ? 'success' : 'error');
+        loadEvents();
+        await loadAllEvents();
+    };
+    reader.readAsText(file);
+}
+
+// =====================================================
 // Teacher Dashboard
 // =====================================================
 
 async function loadTeacherDashboard() {
     if (!currentUserData) return;
+    document.getElementById('teacher-name').textContent = currentUserData.name || 'อาจารย์';
     
-    // Find teacher's group
     try {
-        const groupsSnapshot = await db.collection('groups')
-            .where('teacherId', '==', currentUser.uid)
-            .get();
-        
-        if (groupsSnapshot.empty) {
-            document.getElementById('teacher-students-grid').innerHTML = 
-                '<div class="empty-state"><i class="fas fa-users"></i><h3>ยังไม่ได้รับมอบหมายกลุ่ม</h3></div>';
+        const groupsSnap = await db.collection('groups').where('teacherId', '==', currentUser.uid).get();
+        if (groupsSnap.empty) {
+            document.getElementById('teacher-students-grid').innerHTML = '<div class="empty-state"><div style="font-size:3rem;margin-bottom:1rem;">📋</div><h3>ยังไม่ได้รับมอบหมายกลุ่ม</h3></div>';
             return;
         }
         
-        const group = {
-            id: groupsSnapshot.docs[0].id,
-            ...groupsSnapshot.docs[0].data()
-        };
+        const group = { id: groupsSnap.docs[0].id, ...groupsSnap.docs[0].data() };
+        const el = document.getElementById('teacher-group-name');
+        if (el) el.textContent = group.name;
         
-        document.getElementById('teacher-group-name').textContent = group.name;
-        
-        await loadTeacherStudents(group.id);
-        
-    } catch (error) {
-        console.error('Error loading teacher dashboard:', error);
-    }
+        await loadStudentsInGroup(group.id);
+    } catch (e) { console.error(e); }
 }
 
-async function loadTeacherStudents(groupId) {
-    const grid = document.getElementById('teacher-students-grid');
-    if (!grid) return;
+async function loadStudentsInGroup(groupId) {
+    const container = document.getElementById('teacher-students-grid');
+    if (!container) return;
     
     try {
-        const snapshot = await db.collection('students')
-            .where('groupId', '==', groupId)
-            .get();
-        
-        if (snapshot.empty) {
-            grid.innerHTML = '<div class="empty-state"><i class="fas fa-users"></i><h3>ยังไม่มีนักศึกษาในกลุ่ม</h3></div>';
+        const snap = await db.collection('students').where('groupId', '==', groupId).get();
+        if (snap.empty) {
+            container.innerHTML = '<div class="empty-state"><div style="font-size:3rem;margin-bottom:1rem;">👥</div><h3>ยังไม่มีนักศึกษาในกลุ่ม</h3></div>';
             return;
         }
         
-        const students = [];
-        
-        for (const doc of snapshot.docs) {
-            const data = doc.data();
-            
-            // Get journal count
-            let journalCount = 0;
-            let totalDays = 0;
-            
-            if (currentEvent) {
-                const journalsSnapshot = await db.collection('journals')
-                    .where('studentId', '==', doc.id)
-                    .get();
-                journalCount = journalsSnapshot.size;
-                totalDays = getDaysBetween(currentEvent.startDate, currentEvent.endDate).length;
-            }
-            
-            const progress = totalDays > 0 ? Math.round((journalCount / totalDays) * 100) : 0;
-            
-            students.push({
-                id: doc.id,
-                ...data,
-                journalCount,
-                totalDays,
-                progress
-            });
-        }
-        
-        grid.innerHTML = students.map(s => `
-            <div class="student-card" onclick="viewStudentDetail('${s.id}')">
-                <div class="student-card-header">
-                    <div class="student-avatar">
-                        <i class="fas fa-user-graduate"></i>
-                    </div>
-                    <div>
-                        <h3>${s.name}</h3>
-                        <p>${s.email}</p>
+        container.innerHTML = snap.docs.map(doc => {
+            const d = doc.data();
+            return `<div class="card student-card" onclick="viewStudentDetail('${doc.id}')" style="cursor:pointer;">
+                <div class="card-body">
+                    <div class="flex items-center gap-3">
+                        <div style="width:50px;height:50px;background:var(--primary);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;">${(d.name || 'S').charAt(0).toUpperCase()}</div>
+                        <div>
+                            <h4 style="font-family:var(--font-display);">${d.name || d.email}</h4>
+                            <p style="color:var(--text-muted);font-size:0.875rem;">${d.email}</p>
+                        </div>
                     </div>
                 </div>
-                <div class="student-progress">
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${s.progress}%"></div>
-                    </div>
-                    <div class="progress-text">
-                        <span>${s.journalCount}/${s.totalDays} วัน</span>
-                        <span>${s.progress}%</span>
-                    </div>
-                </div>
-            </div>
-        `).join('');
-        
-        // Update overview stats
-        document.getElementById('teacher-stat-students').textContent = students.length;
-        const completed = students.filter(s => s.progress === 100).length;
-        document.getElementById('teacher-stat-completed').textContent = completed;
-        
-    } catch (error) {
-        console.error('Error loading students:', error);
-    }
+            </div>`;
+        }).join('');
+    } catch (e) { console.error(e); }
 }
 
 async function viewStudentDetail(studentId) {
-    showLoading();
-    
+    viewingStudent = studentId;
     try {
-        const studentDoc = await db.collection('students').doc(studentId).get();
-        if (!studentDoc.exists) {
-            showToast('ไม่พบข้อมูลนักศึกษา', 'error');
-            hideLoading();
-            return;
-        }
+        const doc = await db.collection('students').doc(studentId).get();
+        if (!doc.exists) return;
         
-        viewingStudent = {
-            id: studentId,
-            ...studentDoc.data()
-        };
+        const data = doc.data();
+        document.getElementById('viewing-student-name').textContent = data.name || data.email;
+        document.getElementById('detail-student-name').textContent = data.name || '';
+        document.getElementById('detail-student-email').textContent = data.email;
         
         showPage('student-detail-page');
-        
-        document.getElementById('viewing-student-name').textContent = viewingStudent.name;
-        document.getElementById('detail-student-name').textContent = viewingStudent.name;
-        document.getElementById('detail-student-email').textContent = viewingStudent.email;
-        
-        await loadStudentJournalsTimeline(studentId);
-        
-    } catch (error) {
-        console.error('Error viewing student:', error);
-        showToast('เกิดข้อผิดพลาด', 'error');
-    }
-    
-    hideLoading();
+        await loadStudentJournals(studentId);
+    } catch (e) { console.error(e); }
 }
 
-async function loadStudentJournalsTimeline(studentId) {
-    const timeline = document.getElementById('student-journals-timeline');
-    if (!timeline || !currentEvent) return;
+async function loadStudentJournals(studentId) {
+    const container = document.getElementById('student-journals-timeline');
+    if (!container) return;
     
     try {
-        const eventDays = getDaysBetween(currentEvent.startDate, currentEvent.endDate);
-        
-        // Get all journals for this student
-        const journalsSnapshot = await db.collection('journals')
-            .where('studentId', '==', studentId)
-            .get();
-        
-        const journals = {};
-        journalsSnapshot.forEach(doc => {
-            journals[doc.data().date] = {
-                id: doc.id,
-                ...doc.data()
-            };
-        });
-        
-        // Get teacher notes
-        const notesSnapshot = await db.collection('teacherNotes')
-            .where('studentId', '==', studentId)
-            .get();
-        
-        const notes = {};
-        notesSnapshot.forEach(doc => {
-            notes[doc.data().date] = {
-                id: doc.id,
-                ...doc.data()
-            };
-        });
-        
-        // Update stats
-        const journalCount = Object.keys(journals).length;
-        const completion = eventDays.length > 0 ? Math.round((journalCount / eventDays.length) * 100) : 0;
-        document.getElementById('detail-journals-count').textContent = journalCount;
-        document.getElementById('detail-completion').textContent = completion + '%';
-        
-        // Build timeline
-        timeline.innerHTML = eventDays.map(day => {
-            const journal = journals[day];
-            const note = notes[day];
-            const isCompleted = !!journal;
-            
-            return `
-                <div class="journal-day-card">
-                    <div class="journal-day-header">
-                        <h4><i class="fas fa-calendar-day"></i> ${formatDateThai(day)}</h4>
-                        <span class="status-badge ${isCompleted ? 'completed' : 'pending'}">
-                            ${isCompleted ? 'บันทึกแล้ว' : 'ยังไม่บันทึก'}
-                        </span>
-                    </div>
-                    <div class="journal-day-content">
-                        ${isCompleted ? `
-                            <div class="journal-section-view">
-                                <h5><i class="fas fa-lightbulb"></i> สิ่งที่ได้เรียนรู้</h5>
-                                <p>${journal.learning || '-'}</p>
-                            </div>
-                            <div class="journal-section-view">
-                                <h5><i class="fas fa-heart"></i> ความรู้สึก</h5>
-                                <p>${journal.feeling || '-'}</p>
-                            </div>
-                            <div class="journal-section-view">
-                                <h5><i class="fas fa-rocket"></i> การนำไปใช้</h5>
-                                <p>${journal.application || '-'}</p>
-                            </div>
-                            <div class="journal-section-view">
-                                <h5><i class="fas fa-star"></i> CLO Assessment</h5>
-                                <div class="clo-scores">
-                                    <div class="clo-score-item">
-                                        <span class="clo-label">CLO1</span>
-                                        <span class="stars">${'★'.repeat(journal.clo1 || 0)}${'☆'.repeat(5 - (journal.clo1 || 0))}</span>
-                                    </div>
-                                    <div class="clo-score-item">
-                                        <span class="clo-label">CLO2</span>
-                                        <span class="stars">${'★'.repeat(journal.clo2 || 0)}${'☆'.repeat(5 - (journal.clo2 || 0))}</span>
-                                    </div>
-                                    <div class="clo-score-item">
-                                        <span class="clo-label">CLO3</span>
-                                        <span class="stars">${'★'.repeat(journal.clo3 || 0)}${'☆'.repeat(5 - (journal.clo3 || 0))}</span>
-                                    </div>
-                                    <div class="clo-score-item">
-                                        <span class="clo-label">CLO4</span>
-                                        <span class="stars">${'★'.repeat(journal.clo4 || 0)}${'☆'.repeat(5 - (journal.clo4 || 0))}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            ${journal.files && journal.files.length > 0 ? `
-                                <div class="journal-section-view">
-                                    <h5><i class="fas fa-paperclip"></i> ไฟล์แนบ</h5>
-                                    <div class="note-files">
-                                        ${journal.files.map(f => `
-                                            <a href="${f.url}" target="_blank" class="file-tag">
-                                                <i class="fas fa-file"></i> ${f.name}
-                                            </a>
-                                        `).join('')}
-                                    </div>
-                                </div>
-                            ` : ''}
-                        ` : '<p class="placeholder-text">ยังไม่มีการบันทึก</p>'}
-                        
-                        ${note ? `
-                            <div class="teacher-note-box">
-                                <h5><i class="fas fa-sticky-note"></i> โน้ตจากอาจารย์ ${note.visible ? '(นศ.เห็น)' : '(ซ่อน)'}</h5>
-                                <p>${note.content}</p>
-                            </div>
-                        ` : ''}
-                        
-                        <button class="btn btn-sm btn-outline add-note-btn" onclick="showTeacherNoteModal('${studentId}', '${day}')">
-                            <i class="fas fa-sticky-note"></i> ${note ? 'แก้ไขโน้ต' : 'เพิ่มโน้ต'}
-                        </button>
-                    </div>
-                </div>
-            `;
-        }).join('');
-        
-    } catch (error) {
-        console.error('Error loading journals timeline:', error);
-    }
-}
-
-function showTeacherNoteModal(studentId, date) {
-    const template = document.getElementById('teacher-note-modal-template');
-    const modal = template.content.cloneNode(true);
-    
-    document.getElementById('modal-container').innerHTML = '';
-    document.getElementById('modal-container').appendChild(modal);
-    document.getElementById('modal-overlay').classList.add('active');
-    
-    document.getElementById('note-student-id').value = studentId;
-    document.getElementById('note-date').value = date;
-    
-    // Load existing note if any
-    loadExistingNote(studentId, date);
-    
-    document.getElementById('teacher-note-form').addEventListener('submit', handleTeacherNote);
-}
-
-async function loadExistingNote(studentId, date) {
-    try {
-        const snapshot = await db.collection('teacherNotes')
-            .where('studentId', '==', studentId)
-            .where('date', '==', date)
-            .limit(1)
-            .get();
-        
-        if (!snapshot.empty) {
-            const note = snapshot.docs[0].data();
-            document.getElementById('note-content').value = note.content || '';
-            document.getElementById('note-visible').checked = note.visible || false;
-        }
-    } catch (error) {
-        console.error('Error loading existing note:', error);
-    }
-}
-
-async function handleTeacherNote(e) {
-    e.preventDefault();
-    
-    const studentId = document.getElementById('note-student-id').value;
-    const date = document.getElementById('note-date').value;
-    const content = document.getElementById('note-content').value;
-    const visible = document.getElementById('note-visible').checked;
-    
-    showLoading();
-    
-    try {
-        // Check if note exists
-        const snapshot = await db.collection('teacherNotes')
-            .where('studentId', '==', studentId)
-            .where('date', '==', date)
-            .limit(1)
-            .get();
-        
-        if (!snapshot.empty) {
-            await snapshot.docs[0].ref.update({
-                content,
-                visible,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        } else {
-            await db.collection('teacherNotes').add({
-                studentId,
-                date,
-                teacherId: currentUser.uid,
-                content,
-                visible,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        }
-        
-        closeModal();
-        showToast('บันทึกโน้ตสำเร็จ', 'success');
-        await loadStudentJournalsTimeline(studentId);
-        
-    } catch (error) {
-        console.error('Error saving note:', error);
-        showToast('เกิดข้อผิดพลาด', 'error');
-    }
-    
-    hideLoading();
-}
-
-async function analyzeSkillGap() {
-    if (!viewingStudent) return;
-    
-    const resultDiv = document.getElementById('ai-analysis-result');
-    resultDiv.innerHTML = '<p class="placeholder-text"><i class="fas fa-spinner fa-spin"></i> กำลังวิเคราะห์...</p>';
-    
-    try {
-        const journalsSnapshot = await db.collection('journals')
-            .where('studentId', '==', viewingStudent.id)
-            .get();
-        
-        if (journalsSnapshot.empty) {
-            resultDiv.innerHTML = '<p class="placeholder-text">ยังไม่มีข้อมูลบันทึกเพียงพอสำหรับการวิเคราะห์</p>';
+        const snap = await db.collection('journals').where('studentId', '==', studentId).orderBy('date', 'desc').get();
+        if (snap.empty) {
+            container.innerHTML = '<div class="empty-state"><div style="font-size:3rem;margin-bottom:1rem;">📝</div><h3>ยังไม่มีบันทึก</h3></div>';
             return;
         }
         
-        const journals = journalsSnapshot.docs.map(doc => doc.data());
-        const analysis = await analyzeStudentSkillGap(journals, viewingStudent.name);
+        container.innerHTML = snap.docs.map(doc => {
+            const d = doc.data();
+            return `<div class="card mb-2">
+                <div class="card-body">
+                    <div class="flex justify-between items-start mb-2">
+                        <h4 style="font-family:var(--font-display);">${formatDateThai(d.date)}</h4>
+                        <button class="btn btn-secondary btn-sm" onclick="showTeacherNoteModal('${studentId}','${d.date}')"><i class="fas fa-sticky-note"></i> โน้ต</button>
+                    </div>
+                    <p><strong>การเรียนรู้:</strong> ${d.learning || '-'}</p>
+                    <p><strong>ความรู้สึก:</strong> ${d.feeling || '-'}</p>
+                    <p><strong>การนำไปใช้:</strong> ${d.application || '-'}</p>
+                </div>
+            </div>`;
+        }).join('');
         
-        // Format the analysis
-        resultDiv.innerHTML = `<div class="ai-analysis-content">${analysis.replace(/\n/g, '<br>')}</div>`;
-        
-    } catch (error) {
-        console.error('Error analyzing skill gap:', error);
-        resultDiv.innerHTML = '<p class="placeholder-text">เกิดข้อผิดพลาดในการวิเคราะห์ กรุณาลองใหม่</p>';
-    }
+        document.getElementById('detail-journals-count').textContent = snap.size;
+    } catch (e) { console.error(e); }
 }
 
 function backToTeacherDashboard() {
@@ -1274,92 +1159,161 @@ function backToTeacherDashboard() {
     showPage('teacher-page');
 }
 
+function showTeacherNoteModal(studentId, date) {
+    const template = document.getElementById('teacher-note-modal-template');
+    document.getElementById('modal-container').innerHTML = '';
+    document.getElementById('modal-container').appendChild(template.content.cloneNode(true));
+    document.getElementById('note-student-id').value = studentId;
+    document.getElementById('note-date').value = date;
+    document.getElementById('modal-overlay').classList.add('active');
+    
+    loadExistingTeacherNote(studentId, date);
+    document.getElementById('teacher-note-form').addEventListener('submit', handleTeacherNoteSubmit);
+}
+
+async function loadExistingTeacherNote(studentId, date) {
+    try {
+        const snap = await db.collection('teacherNotes').where('studentId', '==', studentId).where('date', '==', date).get();
+        if (!snap.empty) {
+            const d = snap.docs[0].data();
+            document.getElementById('note-content').value = d.content || '';
+            document.getElementById('note-visible').checked = d.visibleToStudent || false;
+        }
+    } catch (e) { console.error(e); }
+}
+
+async function handleTeacherNoteSubmit(e) {
+    e.preventDefault();
+    const studentId = document.getElementById('note-student-id').value;
+    const date = document.getElementById('note-date').value;
+    const content = document.getElementById('note-content').value;
+    const visibleToStudent = document.getElementById('note-visible').checked;
+    
+    try {
+        const existing = await db.collection('teacherNotes').where('studentId', '==', studentId).where('date', '==', date).get();
+        if (!existing.empty) {
+            await db.collection('teacherNotes').doc(existing.docs[0].id).update({ content, visibleToStudent, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        } else {
+            await db.collection('teacherNotes').add({ studentId, date, teacherId: currentUser.uid, content, visibleToStudent, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        }
+        showToast('บันทึกโน้ตสำเร็จ', 'success');
+        closeModal();
+    } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาด', 'error'); }
+}
+
+async function analyzeSkillGap() {
+    if (!viewingStudent) return;
+    const resultDiv = document.getElementById('ai-analysis-result');
+    resultDiv.innerHTML = '<div class="text-center"><div class="spinner" style="margin:0 auto;"></div><p style="margin-top:1rem;">กำลังวิเคราะห์...</p></div>';
+    
+    try {
+        const snap = await db.collection('journals').where('studentId', '==', viewingStudent).orderBy('date', 'asc').get();
+        if (snap.empty) { resultDiv.innerHTML = '<p style="color:var(--text-muted);">ยังไม่มีข้อมูล</p>'; return; }
+        
+        const journals = snap.docs.map(d => d.data());
+        const studentDoc = await db.collection('students').doc(viewingStudent).get();
+        const studentName = studentDoc.data()?.name || 'นักศึกษา';
+        
+        const analysis = await analyzeStudentSkillGap(journals, studentName);
+        resultDiv.innerHTML = `<div style="white-space:pre-wrap;">${analysis}</div>`;
+    } catch (e) { console.error(e); resultDiv.innerHTML = '<p style="color:var(--error);">เกิดข้อผิดพลาด</p>'; }
+}
+
 // =====================================================
 // Student Dashboard
 // =====================================================
 
 async function loadStudentDashboard() {
-    renderCalendar();
+    if (!currentUserData) return;
+    document.getElementById('student-name').textContent = currentUserData.name || 'นักศึกษา';
     
-    if (currentEvent) {
-        document.getElementById('current-event-info').innerHTML = `
-            <span class="badge badge-info">${currentEvent.name}</span>
-            <span>${formatDateShort(currentEvent.startDate)} - ${formatDateShort(currentEvent.endDate)}</span>
-        `;
+    // Get student's event
+    if (currentUserData.eventId) {
+        try {
+            const eventDoc = await db.collection('events').doc(currentUserData.eventId).get();
+            if (eventDoc.exists) currentEvent = { id: eventDoc.id, ...eventDoc.data() };
+        } catch (e) { console.error(e); }
     }
+    
+    renderCalendar();
+    selectedDate = getDateString(new Date());
 }
 
-function renderCalendar() {
-    const monthYear = document.getElementById('calendar-month-year');
-    const daysContainer = document.getElementById('calendar-days');
-    
+async function renderCalendar() {
     const year = calendarDate.getFullYear();
     const month = calendarDate.getMonth();
     
-    monthYear.textContent = new Date(year, month).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+    document.getElementById('calendar-month-year').textContent = new Date(year, month).toLocaleDateString('th-TH', { year: 'numeric', month: 'long' });
     
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const startDay = firstDay.getDay();
-    const totalDays = lastDay.getDate();
-    
+    const firstDay = new Date(year, month, 1).getDay();
+    const totalDays = new Date(year, month + 1, 0).getDate();
     const today = getDateString(new Date());
-    const eventDays = currentEvent ? getDaysBetween(currentEvent.startDate, currentEvent.endDate) : [];
+    const container = document.getElementById('calendar-days');
+    container.innerHTML = '';
     
-    // Get completed days
-    loadCompletedDays().then(completedDays => {
-        let html = '';
+    // Get event days
+    let eventDays = [];
+    if (currentEvent) eventDays = getDaysBetween(currentEvent.startDate, currentEvent.endDate);
+    
+    // Get completed journals
+    let completedDates = [];
+    try {
+        const snap = await db.collection('journals').where('studentId', '==', currentUser.uid).get();
+        completedDates = snap.docs.map(d => d.data().date);
+    } catch (e) { console.error(e); }
+    
+    // Empty cells
+    for (let i = 0; i < firstDay; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'calendar-day empty';
+        container.appendChild(cell);
+    }
+    
+    // Days
+    for (let day = 1; day <= totalDays; day++) {
+        const date = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const cell = document.createElement('div');
+        cell.className = 'calendar-day';
+        cell.textContent = day;
         
-        // Previous month days
-        const prevMonthDays = new Date(year, month, 0).getDate();
-        for (let i = startDay - 1; i >= 0; i--) {
-            html += `<div class="calendar-day other-month">${prevMonthDays - i}</div>`;
-        }
+        const isToday = date === today;
+        const isEventDay = eventDays.includes(date);
+        const isCompleted = completedDates.includes(date);
+        const isPast = date < today;
+        const isFuture = date > today;
         
-        // Current month days
-        for (let i = 1; i <= totalDays; i++) {
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-            const isToday = dateStr === today;
-            const isEventDay = eventDays.includes(dateStr);
-            const isCompleted = completedDays.includes(dateStr);
-            const isPending = isEventDay && !isCompleted && dateStr <= today;
+        if (isToday) cell.classList.add('today');
+        
+        if (isEventDay) {
+            cell.classList.add('event-day');
             
-            let classes = 'calendar-day';
-            if (isToday) classes += ' today';
-            if (isEventDay) classes += ' event-day';
-            if (isCompleted) classes += ' completed';
-            if (isPending) classes += ' pending';
-            if (selectedDate === dateStr) classes += ' selected';
+            if (isCompleted) {
+                cell.classList.add('completed');
+            } else if (isPast || isToday) {
+                cell.classList.add('pending');
+            } else if (isFuture) {
+                cell.classList.add('future');
+            }
             
-            html += `
-                <div class="${classes}" onclick="selectDate('${dateStr}')">
-                    ${i}
-                    ${isEventDay ? `<span class="dot ${isCompleted ? 'completed' : 'pending'}"></span>` : ''}
-                </div>
-            `;
+            if (!isFuture) {
+                cell.style.cursor = 'pointer';
+                cell.addEventListener('click', () => selectCalendarDate(date));
+            }
+        } else {
+            cell.classList.add('disabled');
         }
         
-        // Next month days
-        const remaining = 42 - (startDay + totalDays);
-        for (let i = 1; i <= remaining; i++) {
-            html += `<div class="calendar-day other-month">${i}</div>`;
-        }
-        
-        daysContainer.innerHTML = html;
-    });
+        container.appendChild(cell);
+    }
 }
 
-async function loadCompletedDays() {
-    try {
-        const snapshot = await db.collection('journals')
-            .where('studentId', '==', currentUser.uid)
-            .get();
-        
-        return snapshot.docs.map(doc => doc.data().date);
-    } catch (error) {
-        console.error('Error loading completed days:', error);
-        return [];
-    }
+function selectCalendarDate(date) {
+    selectedDate = date;
+    document.querySelectorAll('.calendar-day.selected').forEach(d => d.classList.remove('selected'));
+    event.target.classList.add('selected');
+    
+    const tab = document.querySelector('[data-tab="student-journal"]');
+    if (tab) switchTab(tab, 'student-journal');
 }
 
 function navigateCalendar(direction) {
@@ -1367,206 +1321,89 @@ function navigateCalendar(direction) {
     renderCalendar();
 }
 
-function selectDate(dateStr) {
-    const eventDays = currentEvent ? getDaysBetween(currentEvent.startDate, currentEvent.endDate) : [];
-    
-    if (!eventDays.includes(dateStr)) {
-        showToast('วันนี้ไม่อยู่ในช่วงอีเวนท์', 'info');
-        return;
-    }
-    
-    selectedDate = dateStr;
-    renderCalendar();
-    
-    // Switch to journal tab
-    const journalTab = document.querySelector('[data-tab="student-journal"]');
-    if (journalTab) {
-        switchTab(journalTab, 'student-journal');
-    }
-}
-
-async function loadJournalForDate(dateStr) {
-    document.getElementById('journal-date').textContent = formatDateThai(dateStr);
+async function loadJournalForDate(date) {
+    if (!date) return;
+    selectedDate = date;
+    document.getElementById('journal-date').textContent = formatDateThai(date);
     
     // Reset form
-    document.getElementById('journal-form').reset();
+    document.getElementById('journal-learning').value = '';
+    document.getElementById('journal-feeling').value = '';
+    document.getElementById('journal-application').value = '';
     document.querySelectorAll('.star-rating').forEach(r => {
-        r.dataset.value = '0';
+        r.dataset.rating = 0;
         r.querySelectorAll('i').forEach(s => s.classList.remove('active'));
     });
-    document.getElementById('file-preview').innerHTML = '';
-    selectedFiles = [];
     
     try {
-        const snapshot = await db.collection('journals')
-            .where('studentId', '==', currentUser.uid)
-            .where('date', '==', dateStr)
-            .limit(1)
-            .get();
-        
-        if (!snapshot.empty) {
-            const journal = snapshot.docs[0].data();
+        const snap = await db.collection('journals').where('studentId', '==', currentUser.uid).where('date', '==', date).limit(1).get();
+        if (!snap.empty) {
+            const d = snap.docs[0].data();
+            document.getElementById('journal-learning').value = d.learning || '';
+            document.getElementById('journal-feeling').value = d.feeling || '';
+            document.getElementById('journal-application').value = d.application || '';
             
-            document.getElementById('journal-learning').value = journal.learning || '';
-            document.getElementById('journal-feeling').value = journal.feeling || '';
-            document.getElementById('journal-application').value = journal.application || '';
-            
-            // Set star ratings
             ['clo1', 'clo2', 'clo3', 'clo4'].forEach(clo => {
-                const value = journal[clo] || 0;
-                const rating = document.querySelector(`.star-rating[data-clo="${clo}"]`);
-                if (rating) {
-                    rating.dataset.value = value;
-                    rating.querySelectorAll('i').forEach((s, i) => {
-                        if (i < value) s.classList.add('active');
-                    });
+                const rating = document.querySelector(`[data-clo="${clo}"]`);
+                if (rating && d[clo]) {
+                    rating.dataset.rating = d[clo];
+                    rating.querySelectorAll('i').forEach((s, i) => s.classList.toggle('active', i < d[clo]));
                 }
             });
-            
-            // Show existing files
-            if (journal.files && journal.files.length > 0) {
-                document.getElementById('file-preview').innerHTML = journal.files.map(f => `
-                    <div class="file-preview-item">
-                        <i class="fas fa-file"></i>
-                        <span>${f.name}</span>
-                        <a href="${f.url}" target="_blank"><i class="fas fa-external-link-alt"></i></a>
-                    </div>
-                `).join('');
-            }
         }
-        
-        // Load teacher notes
-        await loadTeacherNotesForStudent(dateStr);
-        
-    } catch (error) {
-        console.error('Error loading journal:', error);
-    }
+    } catch (e) { console.error(e); }
+    
+    loadTeacherNotesForStudent(date);
 }
 
-async function loadTeacherNotesForStudent(dateStr) {
+async function loadTeacherNotesForStudent(date) {
     const section = document.getElementById('teacher-notes-section');
     const content = document.getElementById('teacher-notes-content');
     
     try {
-        const snapshot = await db.collection('teacherNotes')
+        const snap = await db.collection('teacherNotes')
             .where('studentId', '==', currentUser.uid)
-            .where('date', '==', dateStr)
-            .where('visible', '==', true)
-            .limit(1)
-            .get();
+            .where('date', '==', date)
+            .where('visibleToStudent', '==', true).limit(1).get();
         
-        if (!snapshot.empty) {
-            const note = snapshot.docs[0].data();
-            content.innerHTML = `<p>${note.content}</p>`;
+        if (!snap.empty) {
+            content.textContent = snap.docs[0].data().content;
             section.classList.remove('hidden');
         } else {
             section.classList.add('hidden');
         }
-    } catch (error) {
-        console.error('Error loading teacher notes:', error);
-        section.classList.add('hidden');
-    }
-}
-
-function handleFileSelect(e) {
-    const files = Array.from(e.target.files);
-    selectedFiles = [...selectedFiles, ...files];
-    
-    const preview = document.getElementById('file-preview');
-    preview.innerHTML = selectedFiles.map((f, i) => `
-        <div class="file-preview-item">
-            <i class="fas fa-${getFileIcon(f.type)}"></i>
-            <span>${f.name}</span>
-            <button type="button" onclick="removeFile(${i})"><i class="fas fa-times"></i></button>
-        </div>
-    `).join('');
-}
-
-function getFileIcon(type) {
-    if (type.startsWith('image/')) return 'image';
-    if (type === 'application/pdf') return 'file-pdf';
-    if (type.startsWith('audio/')) return 'file-audio';
-    return 'file';
-}
-
-function removeFile(index) {
-    selectedFiles.splice(index, 1);
-    const preview = document.getElementById('file-preview');
-    preview.innerHTML = selectedFiles.map((f, i) => `
-        <div class="file-preview-item">
-            <i class="fas fa-${getFileIcon(f.type)}"></i>
-            <span>${f.name}</span>
-            <button type="button" onclick="removeFile(${i})"><i class="fas fa-times"></i></button>
-        </div>
-    `).join('');
+    } catch (e) { console.error(e); }
 }
 
 async function handleJournalSubmit(e) {
     e.preventDefault();
+    if (!selectedDate) { showToast('กรุณาเลือกวันที่', 'error'); return; }
     
-    const dateStr = selectedDate || getDateString(new Date());
-    
-    // Check if within event period
-    if (currentEvent) {
-        const eventDays = getDaysBetween(currentEvent.startDate, currentEvent.endDate);
-        if (!eventDays.includes(dateStr)) {
-            showToast('ไม่สามารถบันทึกวันที่นอกช่วงอีเวนท์ได้', 'error');
-            return;
-        }
-    }
+    const learning = document.getElementById('journal-learning').value.trim();
+    const feeling = document.getElementById('journal-feeling').value.trim();
+    const application = document.getElementById('journal-application').value.trim();
+    const clo1 = parseInt(document.querySelector('[data-clo="clo1"]')?.dataset.rating) || 0;
+    const clo2 = parseInt(document.querySelector('[data-clo="clo2"]')?.dataset.rating) || 0;
+    const clo3 = parseInt(document.querySelector('[data-clo="clo3"]')?.dataset.rating) || 0;
+    const clo4 = parseInt(document.querySelector('[data-clo="clo4"]')?.dataset.rating) || 0;
     
     showLoading();
-    
     try {
-        // Upload files
-        const uploadedFiles = [];
-        for (const file of selectedFiles) {
-            const ref = storage.ref(`journals/${currentUser.uid}/${dateStr}/${file.name}`);
-            await ref.put(file);
-            const url = await ref.getDownloadURL();
-            uploadedFiles.push({ name: file.name, url, type: file.type });
-        }
+        const existing = await db.collection('journals').where('studentId', '==', currentUser.uid).where('date', '==', selectedDate).limit(1).get();
         
-        // Get CLO values
-        const cloValues = {};
-        ['clo1', 'clo2', 'clo3', 'clo4'].forEach(clo => {
-            const rating = document.querySelector(`.star-rating[data-clo="${clo}"]`);
-            cloValues[clo] = parseInt(rating?.dataset.value) || 0;
-        });
-        
-        const journalData = {
-            studentId: currentUser.uid,
-            date: dateStr,
-            learning: document.getElementById('journal-learning').value,
-            feeling: document.getElementById('journal-feeling').value,
-            application: document.getElementById('journal-application').value,
-            ...cloValues,
-            files: uploadedFiles,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        
-        // Check if exists
-        const existing = await db.collection('journals')
-            .where('studentId', '==', currentUser.uid)
-            .where('date', '==', dateStr)
-            .limit(1)
-            .get();
+        const data = { studentId: currentUser.uid, date: selectedDate, learning, feeling, application, clo1, clo2, clo3, clo4, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+        if (currentUserData.eventId) data.eventId = currentUserData.eventId;
         
         if (!existing.empty) {
-            await existing.docs[0].ref.update(journalData);
+            await db.collection('journals').doc(existing.docs[0].id).update(data);
         } else {
-            journalData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-            await db.collection('journals').add(journalData);
+            data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            await db.collection('journals').add(data);
         }
         
         showToast('บันทึกสำเร็จ', 'success');
         renderCalendar();
-        
-    } catch (error) {
-        console.error('Error saving journal:', error);
-        showToast('เกิดข้อผิดพลาด', 'error');
-    }
-    
+    } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาด', 'error'); }
     hideLoading();
 }
 
@@ -1575,295 +1412,154 @@ async function loadJournalHistory() {
     if (!container) return;
     
     try {
-        const snapshot = await db.collection('journals')
-            .where('studentId', '==', currentUser.uid)
-            .orderBy('date', 'desc')
-            .get();
-        
-        if (snapshot.empty) {
-            container.innerHTML = '<div class="empty-state"><i class="fas fa-history"></i><h3>ยังไม่มีบันทึก</h3></div>';
+        const snap = await db.collection('journals').where('studentId', '==', currentUser.uid).orderBy('date', 'desc').get();
+        if (snap.empty) {
+            container.innerHTML = '<div class="empty-state"><div style="font-size:3rem;margin-bottom:1rem;">📝</div><h3>ยังไม่มีบันทึก</h3></div>';
             return;
         }
         
-        container.innerHTML = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return `
-                <div class="history-card" onclick="selectDate('${data.date}')">
-                    <div class="history-card-header">
-                        <h3>${formatDateThai(data.date)}</h3>
-                    </div>
-                    <div class="history-card-body">
-                        <p>${data.learning || 'ไม่มีการบันทึก'}</p>
-                    </div>
-                    <div class="history-card-footer">
-                        <div class="clo-scores">
-                            <span>CLO1: ${'★'.repeat(data.clo1 || 0)}</span>
-                            <span>CLO2: ${'★'.repeat(data.clo2 || 0)}</span>
-                        </div>
-                        <i class="fas fa-chevron-right"></i>
+        container.innerHTML = snap.docs.map(doc => {
+            const d = doc.data();
+            return `<div class="card mb-2">
+                <div class="card-body">
+                    <h4 style="font-family:var(--font-display);margin-bottom:0.5rem;">${formatDateThai(d.date)}</h4>
+                    <p><strong>การเรียนรู้:</strong> ${d.learning || '-'}</p>
+                    <p><strong>ความรู้สึก:</strong> ${d.feeling || '-'}</p>
+                    <p style="margin-bottom:0.5rem;"><strong>การนำไปใช้:</strong> ${d.application || '-'}</p>
+                    <div class="flex gap-2" style="font-size:0.875rem;color:var(--text-muted);">
+                        <span>CLO1: ${d.clo1 || 0}⭐</span>
+                        <span>CLO2: ${d.clo2 || 0}⭐</span>
+                        <span>CLO3: ${d.clo3 || 0}⭐</span>
+                        <span>CLO4: ${d.clo4 || 0}⭐</span>
                     </div>
                 </div>
-            `;
+            </div>`;
         }).join('');
-        
-    } catch (error) {
-        console.error('Error loading history:', error);
-    }
+    } catch (e) { console.error(e); }
 }
 
 async function loadCommunityNotes() {
-    const list = document.getElementById('community-notes-list');
-    if (!list) return;
+    const container = document.getElementById('community-notes-list');
+    if (!container) return;
     
     try {
-        const snapshot = await db.collection('communityNotes')
-            .where('studentId', '==', currentUser.uid)
-            .orderBy('createdAt', 'desc')
-            .get();
-        
-        if (snapshot.empty) {
-            list.innerHTML = '<div class="empty-state"><i class="fas fa-sticky-note"></i><h3>ยังไม่มีโน้ต</h3></div>';
+        const snap = await db.collection('communityNotes').where('studentId', '==', currentUser.uid).orderBy('createdAt', 'desc').get();
+        if (snap.empty) {
+            container.innerHTML = '<div class="empty-state"><div style="font-size:3rem;margin-bottom:1rem;">🔍</div><h3>ยังไม่มีโน้ต</h3></div>';
             return;
         }
         
-        list.innerHTML = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return `
-                <div class="community-note-card">
-                    <h4>${data.title}</h4>
-                    <p>${data.content}</p>
-                    ${data.files && data.files.length > 0 ? `
-                        <div class="note-files">
-                            ${data.files.map(f => `
-                                <a href="${f.url}" target="_blank" class="file-tag">
-                                    <i class="fas fa-file"></i> ${f.name}
-                                </a>
-                            `).join('')}
-                        </div>
-                    ` : ''}
-                    <div class="note-meta">
-                        <span>${data.createdAt ? formatDateShort(data.createdAt.toDate()) : ''}</span>
-                        <button class="btn btn-sm btn-ghost" onclick="deleteCommunityNote('${doc.id}')">
-                            <i class="fas fa-trash"></i>
-                        </button>
+        container.innerHTML = snap.docs.map(doc => {
+            const d = doc.data();
+            return `<div class="card">
+                <div class="card-body">
+                    <div class="flex justify-between items-start">
+                        <h4 style="font-family:var(--font-display);">${d.title || 'ไม่มีหัวข้อ'}</h4>
+                        <button class="btn btn-danger btn-sm" onclick="deleteCommunityNote('${doc.id}')"><i class="fas fa-trash"></i></button>
                     </div>
+                    <p style="color:var(--text-secondary);margin-top:0.5rem;">${d.content || ''}</p>
                 </div>
-            `;
+            </div>`;
         }).join('');
-        
-    } catch (error) {
-        console.error('Error loading community notes:', error);
-    }
+    } catch (e) { console.error(e); }
 }
 
 async function handleCommunityNoteSubmit(e) {
     e.preventDefault();
+    const title = document.getElementById('community-note-title').value.trim();
+    const content = document.getElementById('community-note-content').value.trim();
     
-    const title = document.getElementById('community-note-title').value;
-    const content = document.getElementById('community-note-content').value;
-    const filesInput = document.getElementById('community-note-files');
-    
-    if (!title && !content) {
-        showToast('กรุณากรอกหัวข้อหรือรายละเอียด', 'error');
-        return;
-    }
-    
-    showLoading();
+    if (!title || !content) { showToast('กรุณากรอกข้อมูลให้ครบ', 'error'); return; }
     
     try {
-        // Upload files
-        const uploadedFiles = [];
-        const files = filesInput.files;
-        for (const file of files) {
-            const ref = storage.ref(`communityNotes/${currentUser.uid}/${Date.now()}_${file.name}`);
-            await ref.put(file);
-            const url = await ref.getDownloadURL();
-            uploadedFiles.push({ name: file.name, url, type: file.type });
-        }
-        
-        await db.collection('communityNotes').add({
-            studentId: currentUser.uid,
-            title,
-            content,
-            files: uploadedFiles,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        
-        document.getElementById('community-note-form').reset();
+        await db.collection('communityNotes').add({ studentId: currentUser.uid, title, content, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        document.getElementById('community-note-title').value = '';
+        document.getElementById('community-note-content').value = '';
         showToast('เพิ่มโน้ตสำเร็จ', 'success');
         loadCommunityNotes();
-        
-    } catch (error) {
-        console.error('Error saving community note:', error);
-        showToast('เกิดข้อผิดพลาด', 'error');
-    }
-    
-    hideLoading();
+    } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาด', 'error'); }
 }
 
 async function deleteCommunityNote(noteId) {
-    if (!confirm('ต้องการลบโน้ตนี้หรือไม่?')) return;
-    
+    if (!confirm('ต้องการลบ?')) return;
     try {
         await db.collection('communityNotes').doc(noteId).delete();
-        showToast('ลบโน้ตสำเร็จ', 'success');
+        showToast('ลบสำเร็จ', 'success');
         loadCommunityNotes();
-    } catch (error) {
-        console.error('Error deleting note:', error);
-        showToast('เกิดข้อผิดพลาด', 'error');
-    }
+    } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาด', 'error'); }
 }
 
 async function loadLearningJourney() {
-    const incompleteDiv = document.getElementById('journey-incomplete');
-    const completeDiv = document.getElementById('journey-complete');
-    
     if (!currentEvent) {
-        incompleteDiv.innerHTML = '<div class="journey-progress-card"><i class="fas fa-calendar-times"></i><h3>ไม่พบอีเวนท์</h3></div>';
+        document.getElementById('journey-incomplete').classList.remove('hidden');
+        document.getElementById('journey-complete').classList.add('hidden');
         return;
     }
     
+    const eventDays = getDaysBetween(currentEvent.startDate, currentEvent.endDate);
+    
     try {
-        const eventDays = getDaysBetween(currentEvent.startDate, currentEvent.endDate);
-        const totalDays = eventDays.length;
+        const snap = await db.collection('journals').where('studentId', '==', currentUser.uid).get();
+        const journalDates = snap.docs.map(d => d.data().date);
+        const completedDays = eventDays.filter(day => journalDates.includes(day)).length;
         
-        const journalsSnapshot = await db.collection('journals')
-            .where('studentId', '==', currentUser.uid)
-            .get();
+        document.getElementById('journey-progress-text').textContent = `${completedDays}/${eventDays.length} วัน`;
+        document.getElementById('journey-progress-bar').style.width = `${(completedDays / eventDays.length) * 100}%`;
         
-        const completedDays = journalsSnapshot.docs.map(d => d.data().date);
-        const completedCount = completedDays.filter(d => eventDays.includes(d)).length;
-        const progress = Math.round((completedCount / totalDays) * 100);
-        
-        document.getElementById('journey-progress-bar').style.width = progress + '%';
-        document.getElementById('journey-progress-text').textContent = `${completedCount}/${totalDays} วัน`;
-        
-        if (completedCount >= totalDays) {
-            // All days completed - show journey
-            incompleteDiv.classList.add('hidden');
-            completeDiv.classList.remove('hidden');
-            
-            await generateJourneyPreview(journalsSnapshot.docs);
+        if (completedDays >= eventDays.length) {
+            document.getElementById('journey-incomplete').classList.add('hidden');
+            document.getElementById('journey-complete').classList.remove('hidden');
+            generateJourneyPreview();
         } else {
-            incompleteDiv.classList.remove('hidden');
-            completeDiv.classList.add('hidden');
+            document.getElementById('journey-incomplete').classList.remove('hidden');
+            document.getElementById('journey-complete').classList.add('hidden');
         }
-        
-    } catch (error) {
-        console.error('Error loading journey:', error);
-    }
+    } catch (e) { console.error(e); }
 }
 
-async function generateJourneyPreview(journalDocs) {
+async function generateJourneyPreview() {
     const preview = document.getElementById('journey-preview');
-    
-    const journals = journalDocs.map(d => ({ id: d.id, ...d.data() }));
-    journals.sort((a, b) => new Date(a.date) - new Date(b.date));
-    
-    // Calculate averages
-    const avgCLO = {
-        clo1: 0, clo2: 0, clo3: 0, clo4: 0
-    };
-    
-    journals.forEach(j => {
-        avgCLO.clo1 += j.clo1 || 0;
-        avgCLO.clo2 += j.clo2 || 0;
-        avgCLO.clo3 += j.clo3 || 0;
-        avgCLO.clo4 += j.clo4 || 0;
-    });
-    
-    const count = journals.length;
-    Object.keys(avgCLO).forEach(k => {
-        avgCLO[k] = (avgCLO[k] / count).toFixed(1);
-    });
-    
-    // Get community notes
-    const notesSnapshot = await db.collection('communityNotes')
-        .where('studentId', '==', currentUser.uid)
-        .get();
-    
-    const communityNotes = notesSnapshot.docs.map(d => d.data());
-    
-    preview.innerHTML = `
-        <div class="journey-pdf-content" id="journey-pdf-content">
-            <h1>🌟 Learning Journey</h1>
-            <p class="subtitle">${currentUserData?.name || 'นักศึกษา'} | ${currentEvent?.name || 'Experiential Learning'}</p>
-            
-            <div class="journey-summary">
-                <div class="summary-box">
-                    <h4>CLO 1</h4>
-                    <div class="value">${avgCLO.clo1}</div>
-                    <small>เข้าใจปัญหาชุมชน</small>
-                </div>
-                <div class="summary-box">
-                    <h4>CLO 2</h4>
-                    <div class="value">${avgCLO.clo2}</div>
-                    <small>สร้างสรรค์นวัตกรรม</small>
-                </div>
-                <div class="summary-box">
-                    <h4>CLO 3</h4>
-                    <div class="value">${avgCLO.clo3}</div>
-                    <small>ทำงานร่วมกัน</small>
-                </div>
-                <div class="summary-box">
-                    <h4>CLO 4</h4>
-                    <div class="value">${avgCLO.clo4}</div>
-                    <small>รับผิดชอบสังคม</small>
+    try {
+        const snap = await db.collection('journals').where('studentId', '==', currentUser.uid).orderBy('date', 'asc').get();
+        const journals = snap.docs.map(d => d.data());
+        
+        const avgCLO = {
+            clo1: journals.reduce((s, j) => s + (j.clo1 || 0), 0) / journals.length,
+            clo2: journals.reduce((s, j) => s + (j.clo2 || 0), 0) / journals.length,
+            clo3: journals.reduce((s, j) => s + (j.clo3 || 0), 0) / journals.length,
+            clo4: journals.reduce((s, j) => s + (j.clo4 || 0), 0) / journals.length
+        };
+        
+        preview.innerHTML = `<div class="card">
+            <div class="card-body">
+                <h3 style="font-family:var(--font-display);margin-bottom:1rem;">📊 สรุป CLO</h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <div style="text-align:center;padding:1rem;background:var(--bg-secondary);border-radius:var(--radius-md);"><div style="font-size:1.5rem;font-weight:600;color:var(--primary);">${avgCLO.clo1.toFixed(1)}</div><div style="font-size:0.875rem;color:var(--text-muted);">CLO1</div></div>
+                    <div style="text-align:center;padding:1rem;background:var(--bg-secondary);border-radius:var(--radius-md);"><div style="font-size:1.5rem;font-weight:600;color:var(--primary);">${avgCLO.clo2.toFixed(1)}</div><div style="font-size:0.875rem;color:var(--text-muted);">CLO2</div></div>
+                    <div style="text-align:center;padding:1rem;background:var(--bg-secondary);border-radius:var(--radius-md);"><div style="font-size:1.5rem;font-weight:600;color:var(--primary);">${avgCLO.clo3.toFixed(1)}</div><div style="font-size:0.875rem;color:var(--text-muted);">CLO3</div></div>
+                    <div style="text-align:center;padding:1rem;background:var(--bg-secondary);border-radius:var(--radius-md);"><div style="font-size:1.5rem;font-weight:600;color:var(--primary);">${avgCLO.clo4.toFixed(1)}</div><div style="font-size:0.875rem;color:var(--text-muted);">CLO4</div></div>
                 </div>
             </div>
-            
-            <h2>📅 บันทึกรายวัน</h2>
-            <div class="journey-days">
-                ${journals.map(j => `
-                    <div class="journey-day">
-                        <h3>${formatDateThai(j.date)}</h3>
-                        <p><strong>การเรียนรู้:</strong> ${j.learning || '-'}</p>
-                        <p><strong>การนำไปใช้:</strong> ${j.application || '-'}</p>
-                    </div>
-                `).join('')}
-            </div>
-            
-            ${communityNotes.length > 0 ? `
-                <div class="community-giveback">
-                    <h3>🤝 สิ่งที่ค้นพบจากชุมชน</h3>
-                    ${communityNotes.map(n => `<p><strong>${n.title}:</strong> ${n.content}</p>`).join('')}
-                </div>
-            ` : ''}
-        </div>
-    `;
+        </div>`;
+    } catch (e) { console.error(e); }
 }
 
 async function generateJourneyPDF() {
-    const { jsPDF } = window.jspdf;
-    
     showToast('กำลังสร้าง PDF...', 'info');
-    
     try {
-        const content = document.getElementById('journey-pdf-content');
-        
-        const canvas = await html2canvas(content, {
-            scale: 2,
-            useCORS: true
-        });
-        
-        // A3 size in mm
-        const pdf = new jsPDF({
-            orientation: 'landscape',
-            unit: 'mm',
-            format: 'a3'
-        });
-        
-        const imgWidth = 420; // A3 landscape width
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, imgWidth, imgHeight);
-        
-        pdf.save(`Learning_Journey_${currentUserData?.name || 'Student'}.pdf`);
-        
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
+        doc.setFontSize(24);
+        doc.text('Learning Journey', 20, 20);
+        doc.setFontSize(14);
+        doc.text(currentUserData.name || 'Student', 20, 35);
+        doc.save('learning-journey.pdf');
         showToast('ดาวน์โหลด PDF สำเร็จ', 'success');
-        
-    } catch (error) {
-        console.error('Error generating PDF:', error);
-        showToast('เกิดข้อผิดพลาดในการสร้าง PDF', 'error');
-    }
+    } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาด', 'error'); }
+}
+
+function handleFileSelect(e) {
+    selectedFiles = Array.from(e.target.files);
+    const preview = document.getElementById('file-preview');
+    preview.innerHTML = selectedFiles.map(f => `<div class="file-item"><i class="fas ${f.type.includes('image') ? 'fa-image' : f.type.includes('pdf') ? 'fa-file-pdf' : 'fa-file-audio'}"></i><span>${f.name}</span></div>`).join('');
 }
